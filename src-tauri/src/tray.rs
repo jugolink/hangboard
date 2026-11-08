@@ -65,6 +65,14 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         true,
         None::<&str>,
     )?;
+    let hang_clipboard = CheckMenuItem::with_id(
+        app,
+        "hang_clipboard",
+        "Hang copied images",
+        true,
+        settings.hang_clipboard,
+        None::<&str>,
+    )?;
     let open_at_login = CheckMenuItem::with_id(
         app,
         "open_at_login",
@@ -99,6 +107,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             &sep1,
             &size_menu,
             &open_folder,
+            &hang_clipboard,
             &open_at_login,
             &open_settings,
             &reload,
@@ -132,6 +141,7 @@ pub(crate) fn refresh_checks(app: &AppHandle, settings: &Settings) {
     set_checked(&state.menu, "size_small", eq(settings.scale, 0.8));
     set_checked(&state.menu, "size_medium", eq(settings.scale, 1.0));
     set_checked(&state.menu, "size_large", eq(settings.scale, 1.35));
+    set_checked(&state.menu, "hang_clipboard", settings.hang_clipboard);
     set_checked(&state.menu, "open_at_login", settings.open_at_login);
 }
 
@@ -176,6 +186,7 @@ fn handle_menu(app: &AppHandle, id: &str) -> Result<(), String> {
         "size_medium" => apply_scale(app, 1.0)?,
         "size_large" => apply_scale(app, 1.35)?,
         "open_screenshots_folder" => open_shots_folder(app)?,
+        "hang_clipboard" => toggle_hang_clipboard(app)?,
         "open_at_login" => toggle_autostart(app)?,
         "open_settings" => open_settings_file(app)?,
         "reload_settings" => crate::apply_settings(app)?,
@@ -190,6 +201,15 @@ fn apply_scale(app: &AppHandle, scale: f64) -> Result<(), String> {
     let root = crate::data_root(app)?;
     let mut settings = Settings::load(&root);
     settings.scale = scale;
+    settings.save(&root)?;
+    refresh_checks(app, &settings);
+    Ok(())
+}
+
+fn toggle_hang_clipboard(app: &AppHandle) -> Result<(), String> {
+    let root = crate::data_root(app)?;
+    let mut settings = Settings::load(&root);
+    settings.hang_clipboard = !settings.hang_clipboard;
     settings.save(&root)?;
     refresh_checks(app, &settings);
     Ok(())
