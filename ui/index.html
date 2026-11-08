@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hangboard</title>
+    <link rel="stylesheet" href="line.css" />
+  </head>
+  <body>
+    <!-- The window never moves; this stage slides up inside it to retract. -->
+    <div id="stage" class="hidden">
+      <svg id="rope" aria-hidden="true"></svg>
+      <div id="cards"></div>
+      <div id="hint">Take a screenshot and it will hang here</div>
+    </div>
+
+    <script src="line.js"></script>
+  </body>
+</html>

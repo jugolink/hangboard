@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hangboard capture</title>
+    <link rel="stylesheet" href="overlay.css" />
+  </head>
+  <body>
+    <!-- The frozen desktop, shown as a still image so nothing on screen can
+         move while the user picks a region. -->
+    <div id="backdrop"></div>
+    <div id="dimmer"></div>
+
+    <div id="selection" hidden>
+      <div class="handle nw" data-handle="nw"></div>
+      <div class="handle n" data-handle="n"></div>
+      <div class="handle ne" data-handle="ne"></div>
+      <div class="handle e" data-handle="e"></div>
+      <div class="handle se" data-handle="se"></div>
+      <div class="handle s" data-handle="s"></div>
+      <div class="handle sw" data-handle="sw"></div>
+      <div class="handle w" data-handle="w"></div>
+      <div id="size"></div>
+    </div>
+
+    <div id="hint">Drag to select an area · Esc to cancel</div>
+
+    <script src="overlay.js"></script>
+  </body>
+</html>

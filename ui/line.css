@@ -1,0 +1,257 @@
+/* The line: a rope strung across the top of the screen with photos pegged
+   to it. Every number here is driven by --photo-h / --card-w, which line.js
+   sets from the same geometry the Rust side uses. */
+
+:root {
+  --photo-h: 104px;
+  --card-w: 150px;
+  --panel-h: 210px;
+  --rope-top: 10px;
+  --pin-above: 9.5px;
+  --sag: 20px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  /* The window is click-through anyway; this stops accidental text
+     selection from a dragging pointer. */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+/* The window itself never moves; this stage slides up inside it. */
+#stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--panel-h) + 24px);
+  transform: translateY(0);
+  /* Dropping down: a spring-ish settle. Retracting is quicker and eases in,
+     because the user already decided to leave. */
+  transition: transform 420ms cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+#stage.hidden {
+  transform: translateY(calc(-1 * (var(--panel-h) + 12px)));
+  transition: transform 220ms cubic-bezier(0.5, 0, 0.9, 0.4);
+}
+
+/* A soft shade behind the rope so dark screenshots do not vanish against a
+   dark desktop. Very subtle by design: this is a tool, not a widget. */
+#stage::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: calc(var(--photo-h) + 46px);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.16),
+    rgba(0, 0, 0, 0.08) 42%,
+    rgba(0, 0, 0, 0)
+  );
+  pointer-events: none;
+}
+
+#rope {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--photo-h) + 40px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+#cards {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- one photo ---------------------------------------------------------- */
+
+.card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 5px;
+  border-radius: 2px;
+  background: #fbfaf7;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.12),
+    0 6px 14px rgba(0, 0, 0, 0.18),
+    0 14px 28px rgba(0, 0, 0, 0.1);
+  /* Position and tilt are set inline per photo. */
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
+  will-change: transform;
+}
+
+.card img {
+  display: block;
+  max-width: calc(var(--card-w) - 10px);
+  max-height: var(--photo-h);
+  border-radius: 1px;
+  /* Screenshots are the point; do not let the browser smooth them away. */
+  image-rendering: -webkit-optimize-contrast;
+  pointer-events: none;
+}
+
+.card:hover {
+  z-index: 5;
+}
+
+.card:hover::after {
+  /* A hairline highlight so it is obvious which photo the pointer is on. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+}
+
+/* The peg holding the photo to the rope. */
+.peg {
+  position: absolute;
+  top: calc(-1 * var(--pin-above) + 1px);
+  left: 50%;
+  width: 9px;
+  height: 7px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fffdf8, #cfc7b8 60%, #9a9184);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.card.kept .peg {
+  background: radial-gradient(circle at 35% 30%, #fff8e2, #e3bd63 60%, #a8842c);
+}
+
+/* ---- corner controls --------------------------------------------------- */
+
+.corner {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 600 10px/1 system-ui, sans-serif;
+  color: #fff;
+  opacity: 0;
+  transform: scale(0.8);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+  cursor: pointer;
+}
+
+.card:hover .corner {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Top-left, like Tendedero: the ✕ takes the photo down. */
+.corner.take-down {
+  top: -6px;
+  left: -6px;
+  background: #cf4436;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.corner.take-down:hover {
+  background: #e05545;
+}
+
+/* Top-right: pin, so a photo survives the line filling up. */
+.corner.pin {
+  top: -6px;
+  right: -6px;
+  background: #6b6558;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.corner.pin:hover,
+.card.kept .corner.pin {
+  background: #b9922f;
+}
+
+/* ---- empty line -------------------------------------------------------- */
+
+#hint {
+  position: absolute;
+  top: calc(var(--rope-top) + 26px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(20, 20, 22, 0.62);
+  backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.9);
+  font: 500 12px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+
+#hint.visible {
+  opacity: 1;
+}
+
+/* A short confirm flash when a photo goes to the clipboard. */
+.card.copied::before {
+  content: "Copied";
+  position: absolute;
+  inset: auto 0 -20px 0;
+  text-align: center;
+  font: 600 10px/1 system-ui, sans-serif;
+  color: #9be08a;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  animation: fade-up 900ms ease forwards;
+}
+
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #stage,
+  #stage.hidden,
+  .card,
+  .corner {
+    transition-duration: 1ms;
+  }
+  .card.copied::before {
+    animation-duration: 1ms;
+  }
+}

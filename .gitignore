@@ -1,0 +1,28 @@
+# Rust / Tauri build output
+/src-tauri/target/
+/src-tauri/gen/
+**/*.rs.bk
+
+# Node
+node_modules/
+/ui/dist/
+
+# Local build artifacts that must never be committed
+*.exe
+*.msi
+*.pdb
+*.dSYM/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local scratch
+/.env
+/.env.local
+*.local
+
+# Local runtime data (screenshots, WebView2 profile) — never commit
+/dev-data/

@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  check:
+    name: fmt, clippy, test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Format
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  build:
+    name: build
+    runs-on: windows-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          $exe = "src-tauri/target/release/hangboard.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Error "$exe was not produced"
+            exit 1
+          }
+          $size = (Get-Item $exe).Length
+          Write-Host "hangboard.exe: $([math]::Round($size / 1MB, 1)) MB"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hangboard-exe
+          path: src-tauri/target/release/hangboard.exe
+          if-no-files-found: error
+          retention-days: 14
