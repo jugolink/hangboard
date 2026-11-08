@@ -76,9 +76,10 @@ pub fn place(app: &AppHandle) -> Result<(), String> {
 
 /// Show or retract the line.
 ///
-/// Revealing clears the click-through flag so photos are reachable;
-/// retracting sets it so the parked strip cannot eat clicks at the top edge
-/// while it looks empty.
+/// Click-through is *not* decided here: the hover loop in `hover.rs` flips it
+/// on every tick so that only photos are reachable (and the empty rope is
+/// not). Retracting does force pass-through on, because the parked strip at
+/// the top edge must never eat clicks while it looks empty.
 pub fn reveal(app: &AppHandle, on: bool) {
     let Some(window) = app.get_webview_window("line") else {
         return;
@@ -95,7 +96,9 @@ pub fn reveal(app: &AppHandle, on: bool) {
     }
 
     let _ = window.emit("line:revealed", on);
-    let _ = window.set_ignore_cursor_events(true);
+    if !on {
+        let _ = window.set_ignore_cursor_events(true);
+    }
 
     if on {
         let _ = window.show();
