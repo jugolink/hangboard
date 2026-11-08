@@ -12,12 +12,15 @@ pub const SHOTS_DIR: &str = "shots";
 pub const INDEX_FILE: &str = "line.json";
 
 /// Where a single item's full-size PNG lives.
-pub fn shot_path(root: &Path, id: &str) -> PathBuf {
-    root.join(SHOTS_DIR).join(format!("{id}.png"))
+///
+/// `dir` is the screenshots directory itself (see `crate::shots_dir`): the
+/// index lives beside the app data, the pixels live here.
+pub fn shot_path(dir: &Path, id: &str) -> PathBuf {
+    dir.join(format!("{id}.png"))
 }
 
-fn ensure_dirs(root: &Path) -> std::io::Result<()> {
-    std::fs::create_dir_all(root.join(SHOTS_DIR))
+fn ensure_dirs(dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)
 }
 
 /// A tilt derived from the id: stable across restarts, different per photo.
@@ -79,11 +82,11 @@ pub fn thumbnail(img: &RgbaImage, max_height: u32) -> RgbaImage {
 }
 
 /// Save the pixels and return the item to hang.
-pub fn ingest(img: RgbaImage, root: &Path, now_millis: u128, thumb_h: u32) -> Result<Item, String> {
-    ensure_dirs(root).map_err(|e| e.to_string())?;
+pub fn ingest(img: RgbaImage, dir: &Path, now_millis: u128, thumb_h: u32) -> Result<Item, String> {
+    ensure_dirs(dir).map_err(|e| e.to_string())?;
 
     let id = new_id(now_millis);
-    let path = shot_path(root, &id);
+    let path = shot_path(dir, &id);
 
     img.save_with_format(&path, image::ImageFormat::Png)
         .map_err(|e| e.to_string())?;
@@ -139,7 +142,6 @@ pub fn load_items(root: &Path, thumb_h: u32) -> Vec<Item> {
 }
 
 pub fn save_items(root: &Path, items: &[Item]) -> Result<(), String> {
-    ensure_dirs(root).map_err(|e| e.to_string())?;
     let json = serde_json::to_string(items).map_err(|e| e.to_string())?;
     std::fs::write(root.join(INDEX_FILE), json).map_err(|e| e.to_string())
 }
@@ -161,11 +163,11 @@ pub fn copy_to_clipboard(item: &Item) -> Result<(), String> {
 
 /// Delete the pixels behind an item.
 ///
-/// Only files under our own shots directory are removed. Anything else was
-/// never ours to delete.
-pub fn delete_file(root: &Path, item: &Item) {
+/// Only files under our own screenshots directory are removed. Anything else
+/// was never ours to delete.
+pub fn delete_file(dir: &Path, item: &Item) {
     let path = Path::new(&item.path);
-    if path.starts_with(root.join(SHOTS_DIR)) {
+    if path.starts_with(dir) {
         let _ = std::fs::remove_file(path);
     }
 }
@@ -254,6 +256,8 @@ mod tests {
     #[test]
     fn delete_ignores_files_outside_the_shots_dir() {
         let dir = scratch("outside");
+        let shots = dir.join(SHOTS_DIR);
+        std::fs::create_dir_all(&shots).unwrap();
         let outside = dir.join("not-ours.png");
         std::fs::write(&outside, b"x").unwrap();
 
@@ -266,7 +270,7 @@ mod tests {
             kept: false,
             added_at: 0,
         };
-        delete_file(&dir, &item);
+        delete_file(&shots, &item);
         assert!(outside.exists());
         let _ = std::fs::remove_dir_all(&dir);
     }

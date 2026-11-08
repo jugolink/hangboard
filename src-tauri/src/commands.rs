@@ -68,12 +68,12 @@ pub fn copy_item(state: State<'_, AppState>, id: String) -> CmdResult<()> {
 
 #[tauri::command]
 pub fn discard_item(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<()> {
-    let root = crate::data_root(&app)?;
+    let dir = crate::shots_dir(&app)?;
     {
         let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
         if let Some(pos) = inner.items.iter().position(|i| i.id == id) {
             let item = inner.items.remove(pos);
-            line::delete_file(&root, &item);
+            line::delete_file(&dir, &item);
         }
     }
     crate::persist(&app);
@@ -177,8 +177,8 @@ pub fn finish_capture(
 
     let img = capture::crop(&buf, rect, factor).ok_or("empty selection")?;
     let thumb_h = geometry(1.0).photo_max_height as u32;
-    let root = crate::data_root(&app)?;
-    let item = line::ingest(img, &root, crate::now_millis(), thumb_h)?;
+    let dir = crate::shots_dir(&app)?;
+    let item = line::ingest(img, &dir, crate::now_millis(), thumb_h)?;
 
     {
         let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
