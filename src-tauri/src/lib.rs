@@ -154,18 +154,20 @@ pub fn run() {
         .manage(AppState::new())
         .manage(hover::HoverState::new())
         .manage(window::Overlay::new())
+        .manage(window::Preview::new())
         .setup(|app| {
             let handle = app.handle().clone();
-
-            window::build(&handle)?;
 
             // Settings decide the line size, hotkeys and shots directory, so
             // read them before anything that depends on those.
             let root = data_root(&handle)?;
             let settings = settings::Settings::load(&root);
 
-            // Load the line before the window is ever shown, so the first
-            // reveal already has its photos in place.
+            // Load the line *before* building the windows: `window::build`
+            // starts the line webview, whose first `list_items` call must see
+            // the photos already in place. Loading afterwards loses the race
+            // and the first reveal shows an empty line that never re-fills
+            // (no `line:items` event follows the initial render).
             {
                 let thumb_h = state::geometry(1.0).photo_max_height as u32;
                 let items = line::load_items(&root, thumb_h);
@@ -174,6 +176,8 @@ pub fn run() {
                     inner.scale = settings.scale.clamp(0.5, 2.0);
                 }
             }
+
+            window::build(&handle)?;
 
             window::place(&handle).ok();
             hover::spawn(handle.clone());
@@ -219,6 +223,11 @@ pub fn run() {
             commands::finish_capture,
             commands::cancel_capture,
             commands::hide_line,
+            commands::preview_index,
+            commands::preview_image,
+            commands::open_preview,
+            commands::step_preview,
+            commands::close_preview,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hangboard");

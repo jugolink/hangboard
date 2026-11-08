@@ -19,6 +19,7 @@ const hint = document.getElementById("hint");
 let items = [];
 let geo = null;
 let revealed = false;
+let hoveredId = null;
 
 /** The card top sits this far below the rope: the clothespin is 26px tall
     and overlaps the card by 12px, so 26 - 12 - pinAbove(9.5) = 4.5. */
@@ -124,7 +125,19 @@ function render() {
       setTimeout(() => card.classList.remove("copied"), 900);
     });
 
-    card.addEventListener("mouseenter", () => void invoke("set_dragging", { dragging: false }));
+    card.addEventListener("mouseenter", () => {
+      hoveredId = item.id;
+      void invoke("set_dragging", { dragging: false });
+    });
+
+    card.addEventListener("mouseleave", () => {
+      if (hoveredId === item.id) hoveredId = null;
+    });
+
+    // Double-click (and Space while hovering) opens the preview lightbox.
+    card.addEventListener("dblclick", async () => {
+      await invoke("open_preview", { id: item.id });
+    });
   });
 
   // Rust needs these to decide click-through: it cannot see the CSS layout.
@@ -225,9 +238,14 @@ async function boot() {
     render();
   });
 
-  // Escape hides the line -- the same reflex as closing a popover.
+  // Escape hides the line; Space opens the preview for the hovered photo.
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") void invoke("hide_line");
+    if (event.key === "Escape") {
+      void invoke("hide_line");
+    } else if (event.key === " " && hoveredId && !event.repeat) {
+      event.preventDefault();
+      void invoke("open_preview", { id: hoveredId });
+    }
   });
 }
 

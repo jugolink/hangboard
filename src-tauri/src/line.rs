@@ -146,6 +146,17 @@ pub fn save_items(root: &Path, items: &[Item]) -> Result<(), String> {
     std::fs::write(root.join(INDEX_FILE), json).map_err(|e| e.to_string())
 }
 
+/// Encode the full-size image as a data URL for the preview lightbox.
+///
+/// Unlike the thumbnail, this is the original pixels, so the preview is as
+/// sharp as the file on disk.
+pub fn full_image_data_url(item: &Item) -> Result<String, String> {
+    let img = image::open(&item.path)
+        .map_err(|e| e.to_string())?
+        .to_rgba8();
+    data_url(&img)
+}
+
 /// Put an item back on the clipboard as a real image.
 pub fn copy_to_clipboard(item: &Item) -> Result<(), String> {
     let img = image::open(&item.path)
