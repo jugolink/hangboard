@@ -90,6 +90,14 @@ pub fn over_photo(px: f64, py: f64, win_x: f64, win_y: f64, scale: f64, state: &
     let Ok(inner) = state.inner.lock() else {
         return false;
     };
+    // While retracted the window is lifted off-screen, so the hit rects the
+    // front end last reported describe where the photos *were*, not where they
+    // are. Matching those ghost rects would drop the line when the pointer
+    // crosses empty screen — which is why the hot zone felt much taller than
+    // the intended 3px edge strip.
+    if !inner.revealed {
+        return false;
+    }
     let lx = px / scale - win_x / scale;
     let ly = py / scale - win_y / scale;
     const SLACK: f64 = 4.0;
