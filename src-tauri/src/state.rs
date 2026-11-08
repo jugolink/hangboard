@@ -48,6 +48,10 @@ pub struct Inner {
     pub capture: Option<CaptureBuf>,
     /// Size multiplier from the Size menu (0.8 / 1.0 / 1.35).
     pub scale: f64,
+    /// Which photo the preview lightbox is showing, in display order
+    /// (0 = leftmost / oldest on the line). `None` while the preview is
+    /// closed.
+    pub preview_index: Option<usize>,
 }
 
 impl Inner {

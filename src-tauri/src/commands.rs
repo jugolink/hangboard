@@ -5,7 +5,7 @@
 //! the logic testable without a window.
 
 use crate::state::{geometry, AppState, Geometry, Item};
-use crate::window::{reveal, Overlay};
+use crate::window::{reveal, Overlay, Preview};
 use crate::{capture, line, resize as resize_line};
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -215,6 +215,93 @@ pub fn cancel_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<(
 #[tauri::command]
 pub fn hide_line(app: AppHandle) {
     reveal(&app, false);
+}
+
+// ---- preview lightbox ------------------------------------------------------
+//
+// The line renders oldest-first (left to right), but `inner.items` is stored
+// newest-first. The helpers below convert between the two orders so a preview
+// opened for a specific photo stays on that photo even after the line re-sorts.
+
+/// Newest-first position → display position (0 = leftmost / oldest).
+fn display_index(items: &[Item], newest_first_pos: usize) -> usize {
+    items
+        .len()
+        .saturating_sub(1)
+        .saturating_sub(newest_first_pos)
+}
+
+/// Display position (0 = leftmost / oldest) → newest-first position.
+fn newest_first_index(items: &[Item], display: usize) -> usize {
+    items.len().saturating_sub(1).saturating_sub(display)
+}
+
+/// Which photo the preview is on, in display order. `None` while closed.
+#[tauri::command]
+pub fn preview_index(state: State<'_, AppState>) -> Option<usize> {
+    state.inner.lock().ok().and_then(|g| g.preview_index)
+}
+
+/// The full-size image for the current preview, as a data URL.
+#[tauri::command]
+pub fn preview_image(state: State<'_, AppState>) -> Option<String> {
+    let inner = state.inner.lock().ok()?;
+    let display = inner.preview_index?;
+    let items = &inner.items;
+    let item = items.get(newest_first_index(items, display))?;
+    line::full_image_data_url(item).ok()
+}
+
+/// Open the preview for the photo with this id.
+#[tauri::command]
+pub fn open_preview(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    let display = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        let pos = inner
+            .items
+            .iter()
+            .position(|i| i.id == id)
+            .ok_or("no such item")?;
+        display_index(&inner.items, pos)
+    };
+
+    {
+        let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner.preview_index = Some(display);
+    }
+
+    let window = app.state::<Preview>().window(&app)?;
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
+    window
+        .emit("preview:show", display)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Step the preview by `delta` (wraps around) and return the new display index.
+#[tauri::command]
+pub fn step_preview(state: State<'_, AppState>, delta: i32) -> CmdResult<usize> {
+    let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+    let len = inner.items.len();
+    if len == 0 {
+        return Err("no items".to_string());
+    }
+    let cur = inner.preview_index.unwrap_or(0) as i32;
+    let next = (cur + delta).rem_euclid(len as i32) as usize;
+    inner.preview_index = Some(next);
+    Ok(next)
+}
+
+/// Close the preview.
+#[tauri::command]
+pub fn close_preview(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    if let Ok(mut inner) = state.inner.lock() {
+        inner.preview_index = None;
+    }
+    let window = app.state::<Preview>().window(&app)?;
+    window.hide().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// Physical pixels per logical pixel on the primary monitor.

@@ -11,6 +11,7 @@ use crate::state::{geometry, AppState, Item};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 pub struct Overlay;
+pub struct Preview;
 
 impl Overlay {
     pub fn new() -> Self {
@@ -24,6 +25,23 @@ impl Overlay {
 }
 
 impl Default for Overlay {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Preview {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn window(&self, app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
+        app.get_webview_window("preview")
+            .ok_or_else(|| "preview window missing".to_string())
+    }
+}
+
+impl Default for Preview {
     fn default() -> Self {
         Self::new()
     }
@@ -126,13 +144,22 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     // directory and nothing is left behind. It also makes the app write only
     // where it is allowed to, which matters when the binary runs from a
     // restricted account or a read-only-ish location.
-    let profile = crate::data_root(app)
+    // Each window needs its own WebView2 user-data directory. Three webviews
+    // sharing one directory is exactly what made the preview window render as
+    // fully transparent: the third environment never got a working compositor
+    // on the shared browser process.
+    let profile_base = crate::data_root(app)
         .map(|root| root.join("webview2"))
         .unwrap_or_else(|_| std::path::PathBuf::from("webview2"));
-    let _ = std::fs::create_dir_all(&profile);
+    let line_profile = profile_base.join("line");
+    let overlay_profile = profile_base.join("overlay");
+    let preview_profile = profile_base.join("preview");
+    let _ = std::fs::create_dir_all(&line_profile);
+    let _ = std::fs::create_dir_all(&overlay_profile);
+    let _ = std::fs::create_dir_all(&preview_profile);
 
     WebviewWindowBuilder::new(app, "line", WebviewUrl::App("index.html".into()))
-        .data_directory(profile.clone())
+        .data_directory(line_profile)
         .title("Hangboard")
         .inner_size(mw, height)
         .position(ox, oy)
@@ -151,10 +178,37 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let (sw, sh) = logical_size(&overlay);
 
     WebviewWindowBuilder::new(app, "overlay", WebviewUrl::App("overlay.html".into()))
-        .data_directory(profile)
+        .data_directory(overlay_profile)
         .title("Hangboard capture")
         .inner_size(sw, sh)
         .position(sx, sy)
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .resizable(false)
+        .skip_taskbar(true)
+        .always_on_top(true)
+        .focused(false)
+        .visible(false)
+        .build()?;
+
+    // The preview lightbox is a centred window, not a full-screen one: the
+    // photo shows against a black page inside it, and the desktop stays
+    // visible around the edges, so there is no "is the screen frozen?" moment.
+    //
+    // It reuses the overlay's recipe (transparent, always-on-top, shown on
+    // demand), which is the one window configuration this codebase has proven
+    // paints correctly the first time it is shown.
+    let pw = (sw * 0.8).min(1200.0);
+    let ph = (sh * 0.8).min(800.0);
+    let px = sx + (sw - pw) / 2.0;
+    let py = sy + (sh - ph) / 2.0;
+
+    WebviewWindowBuilder::new(app, "preview", WebviewUrl::App("preview.html".into()))
+        .data_directory(preview_profile)
+        .title("Hangboard preview")
+        .inner_size(pw, ph)
+        .position(px, py)
         .decorations(false)
         .transparent(true)
         .shadow(false)
