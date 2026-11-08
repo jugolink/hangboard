@@ -26,3 +26,6 @@ Thumbs.db
 
 # Local runtime data (screenshots, WebView2 profile) — never commit
 /dev-data/
+
+# Local Cargo proxy config (points at a dev machine proxy; must not leak to CI)
+/.cargo/
