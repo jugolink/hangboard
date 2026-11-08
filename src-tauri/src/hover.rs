@@ -24,6 +24,10 @@ pub struct HoverState {
     inside_since: Mutex<Option<Instant>>,
     outside_since: Mutex<Option<Instant>>,
     running: AtomicBool,
+    /// What the loop last asked the window for. `true` means click-through
+    /// (the strip eats nothing). Cached so we only call the window manager
+    /// when the answer actually flips, not on every 30 Hz tick.
+    pass_through: AtomicBool,
 }
 
 impl HoverState {
@@ -32,6 +36,7 @@ impl HoverState {
             inside_since: Mutex::new(None),
             outside_since: Mutex::new(None),
             running: AtomicBool::new(false),
+            pass_through: AtomicBool::new(false),
         }
     }
 }
@@ -139,25 +144,39 @@ pub fn spawn(app: AppHandle) {
 
         let hover = app.state::<HoverState>();
 
+        // The window must only accept clicks where a photo is (or while a
+        // drag is in flight). Everywhere else it stays click-through so the
+        // parked strip never swallows clicks meant for title bars or tabs.
+        // This runs on every tick — including once the line is already
+        // revealed — because moving the pointer *off* a photo must re-enable
+        // pass-through so the empty rope does not eat the click underneath.
+        let wants_pass_through = !(on_photo || dragging);
+        if hover
+            .pass_through
+            .swap(wants_pass_through, Ordering::SeqCst)
+            != wants_pass_through
+        {
+            let _ = window.set_ignore_cursor_events(wants_pass_through);
+        }
+
         if hot || on_photo || dragging {
             // Inside the zone, on a photo, or mid-drag: cancel any pending
             // retract and start counting toward a reveal.
             *hover.outside_since.lock().unwrap() = None;
 
-            if revealed {
-                continue;
-            }
-            let mut inside = hover.inside_since.lock().unwrap();
-            if inside.is_none() {
-                *inside = Some(Instant::now());
-            }
-            let dwell = inside.map(|t| t.elapsed()).unwrap_or_default();
-            drop(inside);
+            if !revealed {
+                let mut inside = hover.inside_since.lock().unwrap();
+                if inside.is_none() {
+                    *inside = Some(Instant::now());
+                }
+                let dwell = inside.map(|t| t.elapsed()).unwrap_or_default();
+                drop(inside);
 
-            // Over a photo counts as intent immediately; the strip is only a
-            // hint, so it drops without the dwell delay.
-            if on_photo || dwell >= REVEAL_DELAY {
-                crate::reveal(&app, true);
+                // Over a photo counts as intent immediately; the strip is only
+                // a hint, so it drops without the dwell delay.
+                if on_photo || dwell >= REVEAL_DELAY {
+                    crate::reveal(&app, true);
+                }
             }
             continue;
         }
