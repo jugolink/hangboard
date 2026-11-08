@@ -20,6 +20,10 @@ let items = [];
 let geo = null;
 let revealed = false;
 
+/** The card top sits this far below the rope: the clothespin is 26px tall
+    and overlaps the card by 12px, so 26 - 12 - pinAbove(9.5) = 4.5. */
+const CARD_DROP = 4.5;
+
 /** Rope height at x: a shallow parabola, so the line sags toward the middle. */
 function ropeY(x, width) {
   const sag = Math.min(30, width * 0.018);
@@ -65,18 +69,22 @@ function render() {
     card.dataset.id = item.id;
 
     const w = geo.card_width;
-    // Photo height is fixed; the card is that plus its padding and the little
-    // strip of matte below the image.
-    const h = geo.photo_max_height + 10;
+    // Photo height is fixed; the card is that plus its glass inset padding.
+    const h = geo.photo_max_height + 8;
 
-    // Tilt is stored per photo so it does not change on every render.
+    // Position with left/top; the CSS owns rotate (per-photo tilt) and the
+    // hover lift, both pivoting on the clothespin top.
+    card.style.left = `${x - w / 2}px`;
+    card.style.top = `${y + CARD_DROP}px`;
     card.style.width = `${w}px`;
-    card.style.transform = `translate(${x - w / 2}px, ${y + geo.pin_above}px) rotate(${item.tilt}deg)`;
+    card.style.setProperty("--tilt", `${item.tilt}deg`);
 
     const img = document.createElement("img");
     img.src = item.thumb;
     img.alt = "";
     img.draggable = false;
+    img.style.maxWidth = `${w - 8}px`;
+    img.style.maxHeight = `${geo.photo_max_height}px`;
     card.appendChild(img);
 
     const peg = document.createElement("div");
@@ -97,7 +105,7 @@ function render() {
 
     cardsEl.appendChild(card);
 
-    rects.push([x - w / 2, y + geo.pin_above, w, h]);
+    rects.push([x - w / 2, y + CARD_DROP, w, h]);
 
     // One click copies. No double-click handler, so there is no interval to
     // wait out before the clipboard changes.
@@ -155,6 +163,11 @@ function drawRope() {
   // The mask fades the rope out at both ends with a gradient in *alpha*.
   // SVG masks key off luminance, so the gradient has to be white: a black
   // gradient would hide the rope completely rather than fade it.
+  //
+  // Three strokes, 1:1 with Tendedero's LineView.swift:
+  //   shadow  black 0.22  width 1.4  offset +1.2  blur 1.2
+  //   cord    white 0.55  width 1.2  (Color(white: 0.55) = rgb 140)
+  //   glint   white 0.45  width 0.4  offset -0.35
   ropeEl.innerHTML = `
     <defs>
       <linearGradient id="fade" x1="0" x2="1">
@@ -166,14 +179,17 @@ function drawRope() {
       <mask id="fade-mask">
         <rect x="0" y="0" width="${width}" height="${height}" fill="url(#fade)"/>
       </mask>
+      <filter id="rope-blur" x="-20%" y="-200%" width="140%" height="500%">
+        <feGaussianBlur stdDeviation="1.2"/>
+      </filter>
     </defs>
     <g mask="url(#fade-mask)">
-      <path d="${d}" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="2.6"
-            stroke-linecap="round" filter="blur(1.2px)"/>
-      <path d="${d}" fill="none" stroke="rgba(120,116,108,0.95)" stroke-width="1.2"
+      <path d="${d}" fill="none" stroke="rgba(0,0,0,0.22)" stroke-width="1.4"
+            stroke-linecap="round" transform="translate(0,1.2)" filter="url(#rope-blur)"/>
+      <path d="${d}" fill="none" stroke="rgb(140,140,140)" stroke-width="1.2"
             stroke-linecap="round"/>
-      <path d="${d}" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="0.4"
-            stroke-linecap="round" transform="translate(0,-0.4)"/>
+      <path d="${d}" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="0.4"
+            stroke-linecap="round" transform="translate(0,-0.35)"/>
     </g>
   `;
 }

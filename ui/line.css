@@ -1,6 +1,12 @@
 /* The line: a rope strung across the top of the screen with photos pegged
    to it. Every number here is driven by --photo-h / --card-w, which line.js
-   sets from the same geometry the Rust side uses. */
+   sets from the same geometry the Rust side uses.
+
+   Visual reference: Tendedero's PeggedView.swift / LineView.swift. The
+   clothespin, the glass frame and the rope are recreated 1:1 in CSS; the one
+   thing Windows cannot do is the real blurred material behind the card, so
+   the glass is a translucent white gradient that lets the desktop show
+   through instead. */
 
 :root {
   --photo-h: 104px;
@@ -9,6 +15,11 @@
   --rope-top: 10px;
   --pin-above: 9.5px;
   --sag: 20px;
+  /* Clothespin. The card top sits 14px below the clip top: clip top is
+     ropeY - pinAbove, card top is ropeY + 4.5 (26px clip, 12px overlap). */
+  --clip-h: 26px;
+  --clip-w: 9px;
+  --clip-gap: 14px;
 }
 
 * {
@@ -81,83 +92,135 @@ body {
 
 /* ---- one photo ---------------------------------------------------------- */
 
+/* The frame around the photo: the photo plus the glass inset. The photo's
+   radius is the frame's minus the inset, the way macOS rounds nested shapes. */
 .card {
   position: absolute;
   top: 0;
   left: 0;
-  padding: 5px;
-  border-radius: 2px;
-  background: #fbfaf7;
+  padding: 4px;
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.72)
+  );
+  /* Specular edge lit from above, and a faint dark rim, over the soft drop
+     shadow. Hover deepens the shadow and lifts the card. */
   box-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.12),
-    0 6px 14px rgba(0, 0, 0, 0.18),
-    0 14px 28px rgba(0, 0, 0, 0.1);
-  /* Position and tilt are set inline per photo. */
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.1),
+    0 5px 10px rgba(0, 0, 0, 0.18);
+  /* Tilt is set inline via --tilt; both rotation and the hover lift pivot on
+     the clip top so the photo swings under the clothespin, not around its own
+     centre. */
+  transform: rotate(var(--tilt, 0deg));
+  transform-origin: 50% calc(-1 * var(--clip-gap));
   transition:
     transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease,
     opacity 180ms ease;
   will-change: transform;
 }
 
+.card:hover {
+  z-index: 5;
+  transform: rotate(var(--tilt, 0deg)) scale(1.035);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.1),
+    0 8px 14px rgba(0, 0, 0, 0.26);
+}
+
 .card img {
   display: block;
-  max-width: calc(var(--card-w) - 10px);
-  max-height: var(--photo-h);
-  border-radius: 1px;
+  border-radius: 12px;
+  /* A hairline specular ring on the photo edge. */
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.18);
   /* Screenshots are the point; do not let the browser smooth them away. */
   image-rendering: -webkit-optimize-contrast;
   pointer-events: none;
 }
 
-.card:hover {
-  z-index: 5;
-}
-
-.card:hover::after {
-  /* A hairline highlight so it is obvious which photo the pointer is on. */
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
-  pointer-events: none;
-}
-
-/* The peg holding the photo to the rope. */
+/* The clothespin: a brushed metal pill with a slot where it grips the line.
+   Silver for what comes and goes, space grey for what you pinned. */
 .peg {
   position: absolute;
-  top: calc(-1 * var(--pin-above) + 1px);
+  top: calc(-1 * var(--clip-gap));
   left: 50%;
-  width: 9px;
-  height: 7px;
+  width: var(--clip-w);
+  height: var(--clip-h);
   transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fffdf8, #cfc7b8 60%, #9a9184);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  border-radius: 3.5px;
+  background: linear-gradient(
+    90deg,
+    #b3b3b3 0%,
+    #ededed 35%,
+    #d1d1d1 65%,
+    #9e9e9e 100%
+  );
+  box-shadow:
+    inset 0 0.6px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -0.6px 0 rgba(0, 0, 0, 0.18),
+    0 1.5px 2px rgba(0, 0, 0, 0.3);
   pointer-events: none;
+  z-index: 2;
+}
+
+/* The slot the line passes through. */
+.peg::before {
+  content: "";
+  position: absolute;
+  top: 8.5px;
+  left: 50%;
+  width: 5px;
+  height: 1.4px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.32);
 }
 
 .card.kept .peg {
-  background: radial-gradient(circle at 35% 30%, #fff8e2, #e3bd63 60%, #a8842c);
+  background: linear-gradient(
+    90deg,
+    #4d4d4d 0%,
+    #787878 35%,
+    #616161 65%,
+    #3d3d3d 100%
+  );
+  box-shadow:
+    inset 0 0.6px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -0.6px 0 rgba(0, 0, 0, 0.18),
+    0 1.5px 2px rgba(0, 0, 0, 0.3);
+}
+
+.card.kept .peg::before {
+  background: rgba(0, 0, 0, 0.55);
 }
 
 /* ---- corner controls --------------------------------------------------- */
 
 .corner {
   position: absolute;
-  width: 15px;
-  height: 15px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font: 600 10px/1 system-ui, sans-serif;
+  font: 700 10px/1 system-ui, sans-serif;
   color: #fff;
   opacity: 0;
-  transform: scale(0.8);
+  transform: scale(0.6);
   transition:
     opacity 120ms ease,
     transform 120ms ease;
   cursor: pointer;
+  /* Glass circle: translucent white with a specular top edge. */
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
 }
 
 .card:hover .corner {
@@ -167,10 +230,9 @@ body {
 
 /* Top-left, like Tendedero: the ✕ takes the photo down. */
 .corner.take-down {
-  top: -6px;
-  left: -6px;
-  background: #cf4436;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  top: -8px;
+  left: -8px;
+  background: rgba(207, 68, 54, 0.92);
 }
 
 .corner.take-down:hover {
@@ -179,10 +241,9 @@ body {
 
 /* Top-right: pin, so a photo survives the line filling up. */
 .corner.pin {
-  top: -6px;
-  right: -6px;
-  background: #6b6558;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  top: -8px;
+  right: -8px;
+  background: rgba(107, 101, 88, 0.92);
 }
 
 .corner.pin:hover,
@@ -199,9 +260,11 @@ body {
   transform: translateX(-50%);
   padding: 7px 14px;
   border-radius: 999px;
-  background: rgba(20, 20, 22, 0.62);
-  backdrop-filter: blur(8px);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+  color: rgba(58, 58, 60, 0.9);
   font: 500 12px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
   letter-spacing: 0.1px;
   white-space: nowrap;
@@ -216,14 +279,30 @@ body {
 
 /* A short confirm flash when a photo goes to the clipboard. */
 .card.copied::before {
-  content: "Copied";
+  content: "✓ Copied";
   position: absolute;
-  inset: auto 0 -20px 0;
+  inset: auto 0 -22px 0;
   text-align: center;
-  font: 600 10px/1 system-ui, sans-serif;
-  color: #9be08a;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  font: 600 11px/1 system-ui, sans-serif;
+  color: #1c1c1e;
   animation: fade-up 900ms ease forwards;
+}
+
+/* The "Copied" glass capsule (drawn as a background on the flash). */
+.card.copied::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -34px;
+  transform: translateX(-50%);
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.18);
+  animation: fade-up 900ms ease forwards;
+  pointer-events: none;
 }
 
 @keyframes fade-up {
@@ -251,7 +330,8 @@ body {
   .corner {
     transition-duration: 1ms;
   }
-  .card.copied::before {
+  .card.copied::before,
+  .card.copied::after {
     animation-duration: 1ms;
   }
 }
