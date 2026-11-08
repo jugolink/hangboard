@@ -23,6 +23,8 @@ pub struct Settings {
     pub scale: f64,
     /// Whether the app should start with Windows.
     pub open_at_login: bool,
+    /// Whether copied images are automatically hung on the line.
+    pub hang_clipboard: bool,
     /// Custom screenshot directory. `None` means "beside the app data".
     pub data_dir: Option<String>,
 }
@@ -34,6 +36,7 @@ impl Default for Settings {
             whole: DEFAULT_WHOLE.into(),
             scale: 1.0,
             open_at_login: false,
+            hang_clipboard: true,
             data_dir: None,
         }
     }
@@ -78,6 +81,7 @@ mod tests {
         assert_eq!(s.whole, "control+alt+shift+KeyH");
         assert!((s.scale - 1.0).abs() < f64::EPSILON);
         assert!(!s.open_at_login);
+        assert!(s.hang_clipboard);
         assert!(s.data_dir.is_none());
     }
 
@@ -112,6 +116,7 @@ mod tests {
         assert!((s.scale - 0.8).abs() < f64::EPSILON);
         assert_eq!(s.region, DEFAULT_REGION);
         assert!(!s.open_at_login);
+        assert!(s.hang_clipboard);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

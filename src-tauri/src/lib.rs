@@ -14,6 +14,7 @@
 
 pub mod autostart;
 pub mod capture;
+pub mod clipboard;
 pub mod commands;
 pub mod hover;
 pub mod line;
@@ -176,6 +177,7 @@ pub fn run() {
 
             window::place(&handle).ok();
             hover::spawn(handle.clone());
+            clipboard::spawn(handle.clone());
 
             // The hotkeys are configured, not hard-coded: they work while
             // another app has focus, which is the only time they are useful.

@@ -158,7 +158,11 @@ pub fn copy_to_clipboard(item: &Item) -> Result<(), String> {
             height: img.height() as usize,
             bytes: std::borrow::Cow::Owned(img.into_raw()),
         })
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    // Tell the clipboard watcher this bump is ours, so it does not hang the
+    // image right back onto the line.
+    crate::clipboard::mark_own_write();
+    Ok(())
 }
 
 /// Delete the pixels behind an item.
