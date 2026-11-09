@@ -262,6 +262,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .data_directory(settings_profile)
         .title("Hangboard Settings")
         .inner_size(520.0, 620.0)
+        .center()
         .decorations(false)
         .transparent(true)
         .shadow(false)

@@ -406,6 +406,7 @@ pub fn run() {
             commands::open_settings_window,
             commands::close_settings_window,
             commands::open_settings_file,
+            commands::drag_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hangboard");

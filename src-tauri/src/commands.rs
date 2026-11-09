@@ -603,8 +603,14 @@ pub fn save_settings(app: AppHandle, new_settings: crate::settings::Settings) ->
 }
 
 #[tauri::command]
+pub fn drag_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn open_settings_window(app: AppHandle) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("settings") {
+        let _ = win.center();
         let _ = win.show();
         let _ = win.set_focus();
         let _ = win.emit("settings:refresh", ());

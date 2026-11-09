@@ -45,6 +45,12 @@ body {
   background: rgba(255, 255, 255, 0.03);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
+}
+
+#titlebar:active {
+  cursor: grabbing;
 }
 
 #title-text {
@@ -52,6 +58,8 @@ body {
   font-weight: 600;
   letter-spacing: 0.3px;
   color: rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+  user-select: none;
 }
 
 #btn-close {

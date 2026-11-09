@@ -1,4 +1,4 @@
-// Settings Window Frontend: Hotkey Recording, Conflict Checking, and Configuration
+// Settings Window Frontend: Hotkey Recording and Configuration
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -16,7 +16,7 @@ const I18N = {
   "zh-CN": {
     title: "偏好设置",
     secShortcuts: "快捷键配置",
-    shortcutsTip: "点击输入框后直接按下组合键（如 Ctrl + Alt + A）。系统将自动检测冲突。",
+    shortcutsTip: "点击输入框后直接按下组合键（如 Ctrl + Alt + A）。",
     lblRegion: "区域截图",
     descRegion: "拖选矩形区域进行截图",
     lblWhole: "全屏截图",
@@ -48,13 +48,12 @@ const I18N = {
     btnSave: "保存更改",
     saved: "已保存!",
     pressKey: "请按下按键…",
-    validMsg: "✓ 快捷键有效且可用",
     needModifier: "需包含 Ctrl / Alt / Shift 之一",
   },
   en: {
     title: "Preferences",
     secShortcuts: "Shortcuts",
-    shortcutsTip: "Click a box then press keys (e.g. Ctrl + Alt + A). Conflicts are automatically tested.",
+    shortcutsTip: "Click a box then press keys (e.g. Ctrl + Alt + A).",
     lblRegion: "Region Capture",
     descRegion: "Drag a rectangle to capture a portion of the screen",
     lblWhole: "Full Screen Capture",
@@ -86,7 +85,6 @@ const I18N = {
     btnSave: "Save Changes",
     saved: "Saved!",
     pressKey: "Press keys…",
-    validMsg: "✓ Available and valid",
     needModifier: "Must include Ctrl, Alt, or Shift",
   },
 };
@@ -153,43 +151,16 @@ function renderHotkeys() {
   document.getElementById("keys-whole").innerHTML = formatKbdHtml(hotkeys.whole);
 }
 
-/** Check shortcut validity & conflict with Rust */
-async function testShortcut(target, accelerator) {
-  const statusEl = document.getElementById(`status-${target}`);
-  if (!accelerator) {
-    statusEl.textContent = "";
-    statusEl.className = "status-msg";
-    return;
-  }
-  try {
-    const res = await invoke("check_shortcut", { accelerator });
-    const lang = document.getElementById("sel-lang").value;
-    const t = I18N[lang] || I18N["zh-CN"];
-    if (res.valid) {
-      statusEl.textContent = t.validMsg;
-      statusEl.className = "status-msg ok";
-    } else {
-      statusEl.textContent = res.error || "Conflict";
-      statusEl.className = "status-msg error";
-    }
-  } catch (err) {
-    statusEl.textContent = String(err);
-    statusEl.className = "status-msg error";
-  }
-}
-
 /** Setup hotkey box listeners */
 function setupRecorder(target) {
   const box = document.getElementById(`box-${target}`);
   const keysEl = document.getElementById(`keys-${target}`);
-  const statusEl = document.getElementById(`status-${target}`);
 
   box.addEventListener("click", () => {
     recordingTarget = target;
     box.classList.add("recording");
     const lang = document.getElementById("sel-lang").value;
     keysEl.innerHTML = `<em>${I18N[lang]?.pressKey || "Press keys…"}</em>`;
-    statusEl.textContent = "";
   });
 
   box.addEventListener("blur", () => {
@@ -205,7 +176,6 @@ function setupRecorder(target) {
     const def = target === "region" ? "control+alt+KeyH" : "control+alt+shift+KeyH";
     hotkeys[target] = def;
     renderHotkeys();
-    void testShortcut(target, def);
   });
 }
 
@@ -239,9 +209,14 @@ window.addEventListener("keydown", async (e) => {
   // Non-modifier pressed with modifiers
   if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
     const lang = document.getElementById("sel-lang").value;
-    const statusEl = document.getElementById(`status-${recordingTarget}`);
-    statusEl.textContent = I18N[lang]?.needModifier || "Need modifier";
-    statusEl.className = "status-msg error";
+    const box = document.getElementById(`box-${recordingTarget}`);
+    const keysEl = document.getElementById(`keys-${recordingTarget}`);
+    keysEl.innerHTML = `<span style="color:#ef4444;font-size:12px;">${I18N[lang]?.needModifier || "Need modifier"}</span>`;
+    setTimeout(() => {
+      if (recordingTarget) {
+        keysEl.innerHTML = `<em>${I18N[lang]?.pressKey || "Press keys…"}</em>`;
+      }
+    }, 1200);
     return;
   }
 
@@ -272,7 +247,12 @@ window.addEventListener("keydown", async (e) => {
   recordingTarget = null;
 
   renderHotkeys();
-  await testShortcut(target, accelerator);
+});
+
+// Drag window from custom titlebar
+document.getElementById("titlebar").addEventListener("mousedown", (e) => {
+  if (e.target.closest("button") || e.button !== 0) return;
+  invoke("drag_window").catch(console.error);
 });
 
 async function load() {
@@ -294,9 +274,6 @@ async function load() {
   document.getElementById("sel-lang").value = currentSettings.language || "zh-CN";
 
   updateLanguage(document.getElementById("sel-lang").value);
-
-  void testShortcut("region", hotkeys.region);
-  void testShortcut("whole", hotkeys.whole);
 }
 
 document.getElementById("sel-lang").addEventListener("change", (e) => {
@@ -330,8 +307,6 @@ document.getElementById("btn-reset").addEventListener("click", () => {
   document.getElementById("sel-keep").value = "";
   document.getElementById("sel-lang").value = "zh-CN";
   updateLanguage("zh-CN");
-  void testShortcut("region", hotkeys.region);
-  void testShortcut("whole", hotkeys.whole);
 });
 
 document.getElementById("btn-save").addEventListener("click", async () => {

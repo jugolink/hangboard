@@ -27,13 +27,10 @@ let currentLang = "zh-CN";
 function updateLanguage(lang) {
   currentLang = lang;
   const isZh = lang === "zh-CN";
+  document.documentElement.setAttribute("lang", isZh ? "zh-CN" : "en");
   hint.textContent = isZh
     ? "截图或复制图片后将悬挂在此处"
     : "Take a screenshot and it will hang here";
-  document.documentElement.style.setProperty(
-    "--copied-text",
-    JSON.stringify(isZh ? "✓ 已复制" : "✓ Copied")
-  );
 }
 
 // Track which ids were already on the line, so a re-render can tell a
@@ -112,8 +109,12 @@ function render() {
 
     const card = document.createElement("div");
     card.className = "card" + (item.kept ? " kept" : "");
-    if (isNew && !firstRender && !shouldDelayArrival) {
-      card.classList.add("arriving");
+    if (isNew && !firstRender) {
+      if (shouldDelayArrival) {
+        card.classList.add("pending-arrive");
+      } else {
+        card.classList.add("arriving");
+      }
     }
     card.dataset.id = item.id;
 
@@ -181,6 +182,8 @@ function render() {
         return;
       }
       await invoke("copy_item", { id: item.id });
+      card.classList.remove("copied");
+      void card.offsetWidth;
       card.classList.add("copied");
       setTimeout(() => card.classList.remove("copied"), 900);
     });
@@ -285,6 +288,7 @@ function schedulePendingArrivals(delayMs) {
     toAnimate.forEach((id) => {
       const card = cardsEl.querySelector(`.card[data-id="${id}"]`);
       if (card) {
+        card.classList.remove("pending-arrive");
         card.classList.remove("arriving");
         void card.offsetWidth;
         card.classList.add("arriving");
