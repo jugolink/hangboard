@@ -17,7 +17,7 @@ const REVEAL_DELAY: Duration = Duration::from_millis(250);
 /// across the gap between two photos without the line snapping shut.
 const RETRACT_DELAY: Duration = Duration::from_millis(500);
 /// Height of the strip at the very top of the screen that counts as hot.
-const ZONE_HEIGHT: f64 = 3.0;
+const ZONE_HEIGHT: f64 = 8.0;
 const TICK: Duration = Duration::from_millis(33);
 
 pub struct HoverState {
@@ -80,8 +80,9 @@ fn band(px: f64, py: f64, top: f64, left: f64, width: f64, height: f64, scale: f
         return false;
     }
     let in_band = py >= top && py < top + ZONE_HEIGHT * scale;
-    let third = width / 3.0;
-    let in_middle = px >= left + third && px < left + 2.0 * third;
+    // Central 84% of the screen width triggers the line (leaves 8% margin on left and right)
+    let margin = width * 0.08;
+    let in_middle = px >= left + margin && px <= left + width - margin;
     in_band && in_middle
 }
 
@@ -217,6 +218,8 @@ pub fn spawn(app: AppHandle) {
                 // Over a photo counts as intent immediately; the strip is only
                 // a hint, so it drops without the dwell delay.
                 if on_photo || dwell >= REVEAL_DELAY {
+                    let s = state.inner.lock().map(|g| g.scale).unwrap_or(1.0);
+                    let _ = crate::window::place_on_monitor(&window, &mon, s);
                     crate::reveal(&app, true);
                 }
             }
@@ -259,8 +262,8 @@ mod tests {
     #[test]
     fn middle_third_of_the_top_edge_is_hot() {
         assert!(band(960.0, 1.0, 0.0, 0.0, 1920.0, 1080.0, 1.0));
-        assert!(!band(100.0, 1.0, 0.0, 0.0, 1920.0, 1080.0, 1.0));
-        assert!(!band(1800.0, 1.0, 0.0, 0.0, 1920.0, 1080.0, 1.0));
+        assert!(!band(50.0, 1.0, 0.0, 0.0, 1920.0, 1080.0, 1.0));
+        assert!(!band(1850.0, 1.0, 0.0, 0.0, 1920.0, 1080.0, 1.0));
     }
 
     #[test]
@@ -276,8 +279,8 @@ mod tests {
 
     #[test]
     fn zone_height_scales_with_dpi() {
-        // 3 logical pixels at 200% is 6 physical pixels.
-        assert!(band(960.0, 5.0, 0.0, 0.0, 1920.0, 1080.0, 2.0));
-        assert!(!band(960.0, 7.0, 0.0, 0.0, 1920.0, 1080.0, 2.0));
+        // 8 logical pixels at 200% is 16 physical pixels.
+        assert!(band(960.0, 12.0, 0.0, 0.0, 1920.0, 1080.0, 2.0));
+        assert!(!band(960.0, 18.0, 0.0, 0.0, 1920.0, 1080.0, 2.0));
     }
 }

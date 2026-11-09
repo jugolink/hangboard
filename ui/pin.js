@@ -3,7 +3,17 @@
 const { invoke } = window.__TAURI__.core;
 
 const params = new URLSearchParams(window.location.search);
-const id = params.get("id");
+let id = params.get("id");
+if (!id && window.__TAURI__?.window) {
+  try {
+    const currentWin = window.__TAURI__.window.getCurrentWebviewWindow();
+    if (currentWin && currentWin.label) {
+      id = currentWin.label.replace(/^pin-/, "");
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
 
 const card = document.getElementById("pin-card");
 const img = document.getElementById("pin-img");
