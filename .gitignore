@@ -29,3 +29,10 @@ Thumbs.db
 
 # Local Cargo proxy config (points at a dev machine proxy; must not leak to CI)
 /.cargo/
+
+# Local codegraph index and temporary database files
+.codegraph/
+.codegraph_old/
+*.db
+*.db-shm
+*.db-wal
