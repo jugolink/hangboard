@@ -1,0 +1,77 @@
+/* The per-photo context menu: a small glass popup that matches Tendedero's
+   dark rounded menu (deep grey-blue, blurred, rounded corners, no icons). */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: #f2f2f2;
+}
+
+#menu {
+  width: 224px;
+  padding: 6px;
+  border-radius: 10px;
+  background: rgba(40, 44, 54, 0.92);
+  /* Dark frosted glass: a subtle top highlight + soft edge. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 20px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #f2f2f2;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button:hover {
+  background: #2b6be4;
+  color: #ffffff;
+}
+
+button:disabled {
+  color: rgba(242, 242, 242, 0.35);
+  cursor: default;
+}
+
+button:disabled:hover {
+  background: transparent;
+  color: rgba(242, 242, 242, 0.35);
+}
+
+button.danger {
+  color: #ff6b6b;
+}
+
+button.danger:hover {
+  background: #d33;
+  color: #ffffff;
+}
+
+.sep {
+  height: 1px;
+  margin: 5px 8px;
+  background: rgba(255, 255, 255, 0.12);
+}

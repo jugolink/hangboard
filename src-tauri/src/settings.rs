@@ -27,6 +27,9 @@ pub struct Settings {
     pub hang_clipboard: bool,
     /// Custom screenshot directory. `None` means "beside the app data".
     pub data_dir: Option<String>,
+    /// Where "Save to desktop" writes a copy. `None` means the `Hangboard`
+    /// folder on the real desktop.
+    pub export_dir: Option<String>,
     /// "Keep on line" cap. `None` means "as many as fit"; `Some(n)` keeps the
     /// newest `n` and drops the oldest (never a pinned one) beyond that.
     pub keep_on_line: Option<u32>,
@@ -49,6 +52,7 @@ impl Default for Settings {
             open_at_login: false,
             hang_clipboard: true,
             data_dir: None,
+            export_dir: None,
             keep_on_line: None,
             reveal_on_new: true,
             reveal_on_hover: true,
@@ -99,6 +103,7 @@ mod tests {
         assert!(!s.open_at_login);
         assert!(s.hang_clipboard);
         assert!(s.data_dir.is_none());
+        assert!(s.export_dir.is_none());
         assert!(s.keep_on_line.is_none());
         assert!(s.reveal_on_new);
         assert!(s.reveal_on_hover);
@@ -138,6 +143,7 @@ mod tests {
         assert_eq!(s.region, DEFAULT_REGION);
         assert!(!s.open_at_login);
         assert!(s.hang_clipboard);
+        assert!(s.export_dir.is_none());
         assert!(s.keep_on_line.is_none());
         assert!(s.reveal_on_new);
         assert!(s.reveal_on_hover);

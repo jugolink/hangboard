@@ -12,6 +12,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 pub struct Overlay;
 pub struct Preview;
+pub struct Context;
 
 impl Overlay {
     pub fn new() -> Self {
@@ -42,6 +43,23 @@ impl Preview {
 }
 
 impl Default for Preview {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Context {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn window(&self, app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
+        app.get_webview_window("context")
+            .ok_or_else(|| "context window missing".to_string())
+    }
+}
+
+impl Default for Context {
     fn default() -> Self {
         Self::new()
     }
@@ -154,9 +172,11 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let line_profile = profile_base.join("line");
     let overlay_profile = profile_base.join("overlay");
     let preview_profile = profile_base.join("preview");
+    let context_profile = profile_base.join("context");
     let _ = std::fs::create_dir_all(&line_profile);
     let _ = std::fs::create_dir_all(&overlay_profile);
     let _ = std::fs::create_dir_all(&preview_profile);
+    let _ = std::fs::create_dir_all(&context_profile);
 
     WebviewWindowBuilder::new(app, "line", WebviewUrl::App("index.html".into()))
         .data_directory(line_profile)
@@ -209,6 +229,23 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .title("Hangboard preview")
         .inner_size(pw, ph)
         .position(px, py)
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .resizable(false)
+        .skip_taskbar(true)
+        .always_on_top(true)
+        .focused(false)
+        .visible(false)
+        .build()?;
+
+    // The per-photo context menu is a small popup, not a full-screen window.
+    // It is created hidden and shown on demand exactly like the preview, with
+    // its own WebView2 profile so it composes independently.
+    WebviewWindowBuilder::new(app, "context", WebviewUrl::App("context.html".into()))
+        .data_directory(context_profile)
+        .title("Hangboard menu")
+        .inner_size(224.0, 320.0)
         .decorations(false)
         .transparent(true)
         .shadow(false)

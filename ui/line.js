@@ -169,6 +169,12 @@ function render() {
     card.addEventListener("dblclick", async () => {
       await invoke("open_preview", { id: item.id });
     });
+
+    // Right-click opens the per-photo context menu.
+    card.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      void invoke("open_context", { id: item.id });
+    });
   });
 
   // Rust needs these to decide click-through: it cannot see the CSS layout.
