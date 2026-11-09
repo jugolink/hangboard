@@ -6,9 +6,38 @@
     <link rel="stylesheet" href="preview.css" />
   </head>
   <body>
-    <div id="stage">
-      <img id="photo" alt="" />
-      <div id="counter"></div>
+    <div id="container">
+      <div id="top-bar">
+        <div id="info"></div>
+        <button id="btn-close" aria-label="Close">✕</button>
+      </div>
+
+      <div id="photo-area">
+        <button id="btn-prev" class="nav-arrow" aria-label="Previous">‹</button>
+        <div id="photo-box">
+          <img id="photo" alt="" />
+        </div>
+        <button id="btn-next" class="nav-arrow" aria-label="Next">›</button>
+      </div>
+
+      <div id="bottom-bar">
+        <div id="counter"></div>
+        <div class="actions">
+          <button id="btn-pin">
+            <span class="icon">📌</span>
+            <span id="pin-label">钉在桌面</span>
+          </button>
+          <button id="btn-copy">
+            <span class="icon">⧉</span>
+            <span id="copy-label">复制</span>
+          </button>
+          <button id="btn-open">
+            <span class="icon">↗</span>
+            <span id="open-label">打开</span>
+          </button>
+        </div>
+        <div id="hint-key">Esc 退出 · ← → 切换</div>
+      </div>
     </div>
 
     <script src="preview.js"></script>

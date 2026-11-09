@@ -1,17 +1,51 @@
 // The per-photo context menu front end.
-//
-// The window is shown by Rust (via `open_context`), and each button calls a
-// thin `context_*` command. Rust knows which photo is the subject through
-// `state.context_id`, so the buttons never carry an id themselves.
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+const LABELS = {
+  "zh-CN": {
+    copy: "复制",
+    open: "打开",
+    preview: "快速查看",
+    pin: "钉在桌面",
+    markup: "标注…",
+    reveal: "在资源管理器中显示",
+    export: "保存到桌面",
+    discard: "取下照片",
+    "discard-left": "取下左侧所有照片",
+    "discard-right": "取下右侧所有照片",
+  },
+  en: {
+    copy: "Copy",
+    open: "Open",
+    preview: "Quick Look",
+    pin: "Pin to Desktop",
+    markup: "Mark Up…",
+    reveal: "Show in Explorer",
+    export: "Save to Desktop",
+    discard: "Discard",
+    "discard-left": "Take Down Everything to the Left",
+    "discard-right": "Take Down Everything to the Right",
+  },
+};
+
+function updateLanguage(lang) {
+  const dict = LABELS[lang] || LABELS["zh-CN"];
+  document.querySelectorAll("#menu button").forEach((button) => {
+    const action = button.dataset.action;
+    if (dict[action]) {
+      button.textContent = dict[action];
+    }
+  });
+}
+
 const ACTION = {
   copy: "context_copy",
   open: "context_open",
-  preview: "open_preview", // handled below, needs the id
-  markup: null, // not implemented yet (PR #11)
+  preview: "open_preview",
+  pin: "context_pin",
+  markup: null,
   reveal: "context_reveal",
   export: "context_export",
   discard: "context_discard",
@@ -21,13 +55,15 @@ const ACTION = {
 
 async function run(action) {
   if (action === "preview") {
-    // Open the preview for the current context item. The id lives in Rust, so
-    // route through a dedicated command that also closes this menu.
     await invoke("context_preview");
     return;
   }
+  if (action === "pin") {
+    await invoke("context_pin");
+    return;
+  }
   if (action === "markup") {
-    return; // PR #11
+    return;
   }
   if (!ACTION[action]) return;
   await invoke(ACTION[action]);
@@ -39,7 +75,6 @@ document.querySelectorAll("#menu button").forEach((button) => {
   });
 });
 
-// Close when the pointer clicks anywhere else on the line, or on Escape.
 window.addEventListener("blur", () => {
   void invoke("close_context");
 });
@@ -49,3 +84,16 @@ window.addEventListener("keydown", (event) => {
     void invoke("close_context");
   }
 });
+
+async function boot() {
+  try {
+    const lang = await invoke("get_language");
+    if (lang) updateLanguage(lang);
+  } catch (_) {}
+
+  await listen("app:language", (event) => {
+    updateLanguage(event.payload);
+  });
+}
+
+boot().catch((error) => console.error("hangboard: context boot failed", error));

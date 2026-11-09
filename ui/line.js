@@ -20,6 +20,18 @@ let items = [];
 let geo = null;
 let revealed = false;
 let hoveredId = null;
+let pendingArrivalIds = new Set();
+let lastRevealedAt = 0;
+let currentLang = "zh-CN";
+
+function updateLanguage(lang) {
+  currentLang = lang;
+  const isZh = lang === "zh-CN";
+  document.documentElement.setAttribute("lang", isZh ? "zh-CN" : "en");
+  hint.textContent = isZh
+    ? "截图或复制图片后将悬挂在此处"
+    : "Take a screenshot and it will hang here";
+}
 
 // Track which ids were already on the line, so a re-render can tell a
 // genuinely new photo apart from the rest and give it an arrival animation.
@@ -27,6 +39,8 @@ let hoveredId = null;
 // from disk, not just hung.
 let prevIds = new Set();
 let firstRender = true;
+let isGlobalDragging = false;
+let lastWindowWidth = window.innerWidth;
 
 /** How long the drop-out animation runs, kept in sync with .card-falling. */
 const FALL_MS = 560;
@@ -69,6 +83,18 @@ function render() {
   const newIds = [...currentIds].filter((id) => !prevIds.has(id));
   prevIds = currentIds;
 
+  const isStageHidden = stage.classList.contains("hidden");
+  const isTransitioningIn = Date.now() - lastRevealedAt < 380;
+  const shouldDelayArrival = isStageHidden || isTransitioningIn;
+
+  if (shouldDelayArrival && !firstRender) {
+    newIds.forEach((id) => pendingArrivalIds.add(id));
+    if (isTransitioningIn) {
+      const remaining = Math.max(50, 240 - (Date.now() - lastRevealedAt));
+      schedulePendingArrivals(remaining);
+    }
+  }
+
   cardsEl.innerHTML = "";
   hint.classList.toggle("visible", count === 0 && revealed);
 
@@ -85,7 +111,13 @@ function render() {
 
     const card = document.createElement("div");
     card.className = "card" + (item.kept ? " kept" : "");
-    if (isNew && !firstRender) card.classList.add("arriving");
+    if (isNew && !firstRender) {
+      if (shouldDelayArrival) {
+        card.classList.add("pending-arrive");
+      } else {
+        card.classList.add("arriving");
+      }
+    }
     card.dataset.id = item.id;
 
     const w = geo.card_width;
@@ -127,9 +159,126 @@ function render() {
 
     rects.push([x - w / 2, y + CARD_DROP, w, h]);
 
+    let lastDragEndedAt = 0;
+
+    card.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest(".corner")) return;
+
+      const startClientX = e.clientX;
+      const startClientY = e.clientY;
+      let lastScreenX = e.screenX;
+      let lastScreenY = e.screenY;
+      let lastDy = 0;
+      let isDragging = false;
+      let isReadyToPin = false;
+
+      // A click still has to reach the card's own "click" listener for the
+      // copy action, so do NOT capture the pointer (pointer capture would
+      // swallow the click). The window-level move/up listeners below track
+      // the drag instead.
+      isGlobalDragging = true;
+      document.body.classList.add("is-dragging");
+      void invoke("set_dragging", { dragging: true });
+
+      const onPointerMove = (ev) => {
+        const dx = ev.clientX - startClientX;
+        const dy = ev.clientY - startClientY;
+        lastScreenX = ev.screenX;
+        lastScreenY = ev.screenY;
+        lastDy = dy;
+
+        if (!isDragging && Math.hypot(dx, dy) > 5) {
+          isDragging = true;
+          card.classList.add("dragging");
+        }
+
+        if (isDragging) {
+          ev.preventDefault();
+          const tilt = parseFloat(card.style.getPropertyValue("--tilt")) || 0;
+          card.style.transform = `translate(${dx}px, ${dy}px) rotate(${tilt + dx * 0.04}deg) scale(1.04)`;
+          if (dy > 45) {
+            if (!isReadyToPin) {
+              isReadyToPin = true;
+              card.classList.add("ready-to-pin");
+            }
+          } else {
+            if (isReadyToPin) {
+              isReadyToPin = false;
+              card.classList.remove("ready-to-pin");
+            }
+          }
+        }
+      };
+
+      const finishDrag = async (ev) => {
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", finishDrag);
+        window.removeEventListener("pointercancel", finishDrag);
+
+        const wasDragging = isDragging;
+        const finalDy = lastDy;
+        const finalScreenX = ev.screenX || lastScreenX;
+        const finalScreenY = ev.screenY || lastScreenY;
+
+        isDragging = false;
+        card.classList.remove("dragging");
+        card.classList.remove("ready-to-pin");
+
+        if (wasDragging) {
+          lastDragEndedAt = Date.now();
+          if (finalDy > 45) {
+            // 脱绳成功钉在桌面：视觉淡出过渡并生成独立贴图窗口
+            card.style.transition = "transform 180ms ease, opacity 180ms ease";
+            card.style.opacity = "0.2";
+            setTimeout(() => {
+              card.style.transform = "";
+              card.style.opacity = "";
+              card.style.transition = "";
+            }, 200);
+
+            try {
+              await invoke("pin_to_desktop", {
+                id: item.id,
+                x: finalScreenX,
+                y: finalScreenY,
+              });
+            } catch (err) {
+              console.error("pin_to_desktop failed:", err);
+            }
+          } else {
+            // 未达到脱绳阈值，平滑回弹
+            card.style.transition = "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)";
+            card.style.transform = "";
+            setTimeout(() => {
+              card.style.transition = "";
+            }, 240);
+          }
+
+          // 稍后还原窗口高度，避免快速回缩裁切视觉动画
+          setTimeout(() => {
+            isGlobalDragging = false;
+            document.body.classList.remove("is-dragging");
+            void invoke("set_dragging", { dragging: false });
+          }, 180);
+        } else {
+          // 单击（无显著拖动位移）
+          card.style.transform = "";
+          isGlobalDragging = false;
+          document.body.classList.remove("is-dragging");
+          void invoke("set_dragging", { dragging: false });
+        }
+      };
+
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", finishDrag);
+      window.addEventListener("pointercancel", finishDrag);
+    });
+
     // One click copies. No double-click handler, so there is no interval to
     // wait out before the clipboard changes.
     card.addEventListener("click", async (event) => {
+      if (Date.now() - lastDragEndedAt < 300) return;
       if (event.target === down || down.contains(event.target)) {
         down.style.pointerEvents = "none";
         // Play the drop-out animation, then hand off to Rust to delete and
@@ -152,13 +301,23 @@ function render() {
         return;
       }
       await invoke("copy_item", { id: item.id });
+      card.classList.remove("copied");
+      void card.offsetWidth;
       card.classList.add("copied");
       setTimeout(() => card.classList.remove("copied"), 900);
     });
 
     card.addEventListener("mouseenter", () => {
       hoveredId = item.id;
-      void invoke("set_dragging", { dragging: false });
+      // A stray pointerup (e.g. released outside the window while the hover
+      // loop was mid-resize) can leave `dragging` latched true and pass-through
+      // disabled, which makes every later click fall through instead of
+      // copying. Re-asserting false on enter is cheap and self-heals — but only
+      // when we are not mid-drag, since the expanding window can shift the card
+      // under the pointer and fire this handler during an active drag.
+      if (!isGlobalDragging) {
+        void invoke("set_dragging", { dragging: false });
+      }
     });
 
     card.addEventListener("mouseleave", () => {
@@ -183,6 +342,7 @@ function render() {
   // After the first full render, treat every future render as "the line has
   // already been drawn once", so only later arrivals animate in.
   firstRender = false;
+  lastWindowWidth = window.innerWidth;
 }
 
 function applyGeometry(g) {
@@ -248,13 +408,42 @@ function drawRope() {
   `;
 }
 
+function schedulePendingArrivals(delayMs) {
+  if (pendingArrivalIds.size === 0) return;
+  const toAnimate = [...pendingArrivalIds];
+  pendingArrivalIds.clear();
+  setTimeout(() => {
+    toAnimate.forEach((id) => {
+      const card = cardsEl.querySelector(`.card[data-id="${id}"]`);
+      if (card) {
+        card.classList.remove("pending-arrive");
+        card.classList.remove("arriving");
+        void card.offsetWidth;
+        card.classList.add("arriving");
+      }
+    });
+  }, delayMs);
+}
+
 function setRevealed(on) {
   revealed = on;
   stage.classList.toggle("hidden", !on);
   hint.classList.toggle("visible", on && items.length === 0);
+
+  if (on) {
+    lastRevealedAt = Date.now();
+    schedulePendingArrivals(240);
+  } else {
+    pendingArrivalIds.clear();
+  }
 }
 
 async function boot() {
+  try {
+    const lang = await invoke("get_language");
+    if (lang) updateLanguage(lang);
+  } catch (_) {}
+
   geo = await invoke("get_geometry", { scale: 1 });
   applyGeometry(geo);
 
@@ -263,20 +452,30 @@ async function boot() {
 
   await listen("line:items", (event) => {
     items = event.payload;
+    if (isGlobalDragging) return;
     render();
   });
 
   await listen("line:revealed", (event) => setRevealed(event.payload));
 
+  await listen("app:language", (event) => {
+    updateLanguage(event.payload);
+  });
+
   await listen("line:geometry", async () => {
     geo = await invoke("get_geometry", { scale: 1 });
     applyGeometry(geo);
+    if (isGlobalDragging) return;
     render();
   });
 
   window.addEventListener("resize", () => {
-    drawRope();
-    render();
+    if (isGlobalDragging) return;
+    if (window.innerWidth !== lastWindowWidth) {
+      lastWindowWidth = window.innerWidth;
+      drawRope();
+      render();
+    }
   });
 
   // Escape hides the line; Space opens the preview for the hovered photo.

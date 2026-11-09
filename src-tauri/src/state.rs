@@ -20,6 +20,8 @@ pub struct Item {
     pub aspect: f64,
     pub kept: bool,
     pub added_at: i64,
+    #[serde(default)]
+    pub hash: u64,
 }
 
 /// A screenshot held in memory between "freeze the screen" and "cut this
@@ -42,12 +44,17 @@ pub struct Inner {
     /// Window-relative rectangles of the photos, in logical pixels.
     pub hit_rects: Vec<(f64, f64, f64, f64)>,
     pub revealed: bool,
+    /// When pinned is true, the line stays visible and does not retract on mouse leave.
+    pub pinned: bool,
     /// Set while a photo is being dragged, so the hover loop stops fighting
     /// the pointer for the window's mouse state.
     pub dragging: bool,
     pub capture: Option<CaptureBuf>,
     /// Size multiplier from the Size menu (0.8 / 1.0 / 1.35).
     pub scale: f64,
+    /// When set, the line was auto-revealed for a new capture and should stay
+    /// visible until this timestamp, even if cursor is outside hot zone.
+    pub auto_dismiss_at: Option<std::time::Instant>,
     /// Which photo the preview lightbox is showing, in display order
     /// (0 = leftmost / oldest on the line). `None` while the preview is
     /// closed.

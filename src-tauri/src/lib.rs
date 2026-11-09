@@ -148,6 +148,23 @@ pub fn reveal_on_new(app: &AppHandle) {
         return;
     };
     if settings::Settings::load(&root).reveal_on_new {
+        if let Some(window) = app.get_webview_window("line") {
+            if let Ok(cursor) = app.cursor_position() {
+                if let Ok(Some(mon)) = app.monitor_from_point(cursor.x, cursor.y) {
+                    let s = app
+                        .state::<AppState>()
+                        .inner
+                        .lock()
+                        .map(|g| g.scale)
+                        .unwrap_or(1.0);
+                    let _ = window::place_on_monitor(&window, &mon, s);
+                }
+            }
+        }
+        if let Ok(mut inner) = app.state::<AppState>().inner.lock() {
+            inner.auto_dismiss_at =
+                Some(std::time::Instant::now() + std::time::Duration::from_millis(3000));
+        }
         reveal(app, true);
     }
 }
@@ -155,6 +172,25 @@ pub fn reveal_on_new(app: &AppHandle) {
 /// Hang an already-finished image (used by the overlay and by future
 /// screenshot folders).
 pub fn hang(app: &AppHandle, img: image::RgbaImage) -> Result<Item, String> {
+    let hash = line::image_hash(&img);
+
+    // If an identical image is already hanging on the line, avoid duplicating files
+    // and cards. If it's already the head item, do nothing; if older, bring it to front.
+    if let Ok(mut inner) = app.state::<AppState>().inner.lock() {
+        if let Some(pos) = inner.items.iter().position(|i| i.hash == hash && hash != 0) {
+            if pos == 0 {
+                return Ok(inner.items[0].clone());
+            }
+            let mut item = inner.items.remove(pos);
+            item.added_at = now_millis() as i64;
+            inner.items.insert(0, item.clone());
+            drop(inner);
+            persist(app);
+            emit_items(app);
+            return Ok(item);
+        }
+    }
+
     let dir = shots_dir(app)?;
     let thumb_h = state::geometry(1.0).photo_max_height as u32;
     let item = line::ingest(img, &dir, now_millis(), thumb_h)?;
@@ -214,6 +250,7 @@ pub fn take_everything_down(app: &AppHandle) -> Result<(), String> {
             line::delete_file(&dir, &item);
         }
     }
+    crate::clipboard::reset_last_hash();
     persist(app);
     emit_items(app);
     Ok(())
@@ -240,7 +277,7 @@ fn beep() {}
 ///
 /// A hand-edited accelerator that fails to parse (or is already taken by
 /// another app) is skipped rather than fatal: the line must still start.
-fn register_shortcuts(app: &AppHandle, settings: &settings::Settings) -> Result<(), String> {
+pub fn register_shortcuts(app: &AppHandle, settings: &settings::Settings) -> Result<(), String> {
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
 
@@ -360,11 +397,18 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Closing either window must not end the session: the line is
-            // meant to live in the background. Hide instead.
+            // Background windows hide instead of closing; pinned floating windows destroy.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+                let label = window.label();
+                if label == "line"
+                    || label == "settings"
+                    || label == "preview"
+                    || label == "context"
+                    || label == "overlay"
+                {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -380,6 +424,7 @@ pub fn run() {
             commands::finish_capture,
             commands::cancel_capture,
             commands::hide_line,
+            commands::get_language,
             commands::preview_index,
             commands::preview_image,
             commands::open_preview,
@@ -390,11 +435,25 @@ pub fn run() {
             commands::context_copy,
             commands::context_open,
             commands::context_preview,
+            commands::context_pin,
             commands::context_reveal,
             commands::context_export,
             commands::context_discard,
             commands::context_discard_left,
             commands::context_discard_right,
+            commands::check_shortcut,
+            commands::get_settings,
+            commands::save_settings,
+            commands::open_settings_window,
+            commands::close_settings_window,
+            commands::open_settings_file,
+            commands::drag_window,
+            commands::pin_to_desktop,
+            commands::get_pin_image,
+            commands::close_pin,
+            commands::get_my_pin_info,
+            commands::set_pin_always_on_top,
+            commands::resize_pinned_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hangboard");

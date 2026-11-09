@@ -5,166 +5,127 @@
 use crate::autostart;
 use crate::settings::Settings;
 use crate::state::AppState;
+use std::sync::Mutex;
 use tauri::{
-    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
+    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
-    AppHandle, Manager,
+    AppHandle, Emitter, Manager,
 };
 
 /// Keeps the menu alive and lets handlers refresh check marks in place.
 pub struct TrayState {
-    pub menu: Menu<tauri::Wry>,
+    pub menu: Mutex<Menu<tauri::Wry>>,
 }
 
-pub fn build(app: &AppHandle) -> tauri::Result<()> {
-    let root = crate::data_root(app).map_err(std::io::Error::other)?;
-    let settings = Settings::load(&root);
+struct I18n {
+    is_zh: bool,
+}
 
-    let show_hide = MenuItem::with_id(app, "toggle_line", "Show / hide line", true, None::<&str>)?;
+impl I18n {
+    fn new(lang: &str) -> Self {
+        Self {
+            is_zh: lang == "zh-CN",
+        }
+    }
+
+    fn toggle_line(&self) -> &'static str {
+        if self.is_zh {
+            "始终固定显示晾衣绳"
+        } else {
+            "Always show line"
+        }
+    }
+    fn take_everything_down(&self) -> &'static str {
+        if self.is_zh {
+            "全部取下"
+        } else {
+            "Take everything down"
+        }
+    }
+    fn capture_region(&self) -> &'static str {
+        if self.is_zh {
+            "区域截图"
+        } else {
+            "Capture region"
+        }
+    }
+    fn capture_whole(&self) -> &'static str {
+        if self.is_zh {
+            "全屏截图"
+        } else {
+            "Capture full screen"
+        }
+    }
+    fn open_folder(&self) -> &'static str {
+        if self.is_zh {
+            "打开截图文件夹"
+        } else {
+            "Open screenshots folder"
+        }
+    }
+    fn open_settings(&self) -> &'static str {
+        if self.is_zh {
+            "偏好设置…"
+        } else {
+            "Preferences…"
+        }
+    }
+    fn quit(&self) -> &'static str {
+        if self.is_zh {
+            "退出"
+        } else {
+            "Quit"
+        }
+    }
+}
+
+pub fn create_menu(
+    app: &AppHandle,
+    settings: &Settings,
+    pinned: bool,
+) -> tauri::Result<Menu<tauri::Wry>> {
+    let tr = I18n::new(&settings.language);
+
+    let show_hide = CheckMenuItem::with_id(
+        app,
+        "toggle_line",
+        tr.toggle_line(),
+        true,
+        pinned,
+        None::<&str>,
+    )?;
     let take_down = MenuItem::with_id(
         app,
         "take_everything_down",
-        "Take everything down",
-        true,
-        None::<&str>,
-    )?;
-    let region = MenuItem::with_id(app, "capture_region", "Capture region", true, None::<&str>)?;
-    let whole = MenuItem::with_id(
-        app,
-        "capture_whole",
-        "Capture full screen",
+        tr.take_everything_down(),
         true,
         None::<&str>,
     )?;
     let sep1 = PredefinedMenuItem::separator(app)?;
 
-    // "Keep on line": how many un-pinned photos survive before the oldest drops.
-    let keep_fit = CheckMenuItem::with_id(
+    let region = MenuItem::with_id(
         app,
-        "keep_fit",
-        "As many as fit",
+        "capture_region",
+        tr.capture_region(),
         true,
-        settings.keep_on_line.is_none(),
         None::<&str>,
     )?;
-    let keep_25 = CheckMenuItem::with_id(
-        app,
-        "keep_25",
-        "25",
-        true,
-        settings.keep_on_line == Some(25),
-        None::<&str>,
-    )?;
-    let keep_50 = CheckMenuItem::with_id(
-        app,
-        "keep_50",
-        "50",
-        true,
-        settings.keep_on_line == Some(50),
-        None::<&str>,
-    )?;
-    let keep_100 = CheckMenuItem::with_id(
-        app,
-        "keep_100",
-        "100",
-        true,
-        settings.keep_on_line == Some(100),
-        None::<&str>,
-    )?;
-    let keep_menu = Submenu::with_items(
-        app,
-        "Keep on line",
-        true,
-        &[&keep_fit, &keep_25, &keep_50, &keep_100],
-    )?;
-
-    let size_small = CheckMenuItem::with_id(
-        app,
-        "size_small",
-        "Small",
-        true,
-        eq(settings.scale, 0.8),
-        None::<&str>,
-    )?;
-    let size_medium = CheckMenuItem::with_id(
-        app,
-        "size_medium",
-        "Medium",
-        true,
-        eq(settings.scale, 1.0),
-        None::<&str>,
-    )?;
-    let size_large = CheckMenuItem::with_id(
-        app,
-        "size_large",
-        "Large",
-        true,
-        eq(settings.scale, 1.35),
-        None::<&str>,
-    )?;
-    let size_menu =
-        Submenu::with_items(app, "Size", true, &[&size_small, &size_medium, &size_large])?;
-
+    let whole = MenuItem::with_id(app, "capture_whole", tr.capture_whole(), true, None::<&str>)?;
     let open_folder = MenuItem::with_id(
         app,
         "open_screenshots_folder",
-        "Open screenshots folder",
-        true,
-        None::<&str>,
-    )?;
-    let hang_clipboard = CheckMenuItem::with_id(
-        app,
-        "hang_clipboard",
-        "Hang copied images",
-        true,
-        settings.hang_clipboard,
-        None::<&str>,
-    )?;
-    let open_at_login = CheckMenuItem::with_id(
-        app,
-        "open_at_login",
-        "Open at login",
-        true,
-        settings.open_at_login,
-        None::<&str>,
-    )?;
-    let open_settings = MenuItem::with_id(
-        app,
-        "open_settings",
-        "Open settings file",
-        true,
-        None::<&str>,
-    )?;
-    let reveal_on_hover = CheckMenuItem::with_id(
-        app,
-        "reveal_on_hover",
-        "Reveal on hover",
-        true,
-        settings.reveal_on_hover,
-        None::<&str>,
-    )?;
-    let reveal_on_new = CheckMenuItem::with_id(
-        app,
-        "reveal_on_new",
-        "Reveal on new photo",
-        true,
-        settings.reveal_on_new,
-        None::<&str>,
-    )?;
-    let sounds =
-        CheckMenuItem::with_id(app, "sounds", "Sounds", true, settings.sounds, None::<&str>)?;
-    let reload = MenuItem::with_id(
-        app,
-        "reload_settings",
-        "Reload settings",
+        tr.open_folder(),
         true,
         None::<&str>,
     )?;
     let sep2 = PredefinedMenuItem::separator(app)?;
-    let sep3 = PredefinedMenuItem::separator(app)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
-    let menu = Menu::with_items(
+    let open_settings =
+        MenuItem::with_id(app, "open_settings", tr.open_settings(), true, None::<&str>)?;
+    let sep3 = PredefinedMenuItem::separator(app)?;
+    let quit = MenuItem::with_id(app, "quit", tr.quit(), true, None::<&str>)?;
+
+    Menu::with_items(
         app,
         &[
             &show_hide,
@@ -172,21 +133,26 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             &sep1,
             &region,
             &whole,
-            &hang_clipboard,
-            &sep2,
-            &keep_menu,
-            &size_menu,
-            &reveal_on_hover,
-            &reveal_on_new,
-            &sounds,
             &open_folder,
-            &open_at_login,
+            &sep2,
             &open_settings,
-            &reload,
             &sep3,
             &quit,
         ],
-    )?;
+    )
+}
+
+pub fn build(app: &AppHandle) -> tauri::Result<()> {
+    let root = crate::data_root(app).map_err(std::io::Error::other)?;
+    let settings = Settings::load(&root);
+    let pinned = app
+        .state::<AppState>()
+        .inner
+        .lock()
+        .map(|g| g.pinned)
+        .unwrap_or(false);
+
+    let menu = create_menu(app, &settings, pinned)?;
 
     TrayIconBuilder::with_id("main-tray")
         .icon(tauri::image::Image::from_bytes(include_bytes!(
@@ -200,28 +166,59 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
 
-    app.manage(TrayState { menu });
+    app.manage(TrayState {
+        menu: Mutex::new(menu),
+    });
+    Ok(())
+}
+
+pub fn rebuild_menu(app: &AppHandle) -> tauri::Result<()> {
+    let Ok(root) = crate::data_root(app) else {
+        return Ok(());
+    };
+    let settings = Settings::load(&root);
+    let pinned = app
+        .state::<AppState>()
+        .inner
+        .lock()
+        .map(|g| g.pinned)
+        .unwrap_or(false);
+    let new_menu = create_menu(app, &settings, pinned)?;
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        let _ = tray.set_menu(Some(new_menu.clone()));
+    }
+    if let Some(state) = app.try_state::<TrayState>() {
+        if let Ok(mut m) = state.menu.lock() {
+            *m = new_menu;
+        }
+    }
+    let _ = app.emit("app:language", &settings.language);
     Ok(())
 }
 
 /// Refresh the check marks after a setting changes so the menu never lies
 /// about the current Size or autostart state.
-pub(crate) fn refresh_checks(app: &AppHandle, settings: &Settings) {
+pub(crate) fn refresh_checks(app: &AppHandle, _settings: &Settings) {
     let Some(state) = app.try_state::<TrayState>() else {
         return;
     };
-    set_checked(&state.menu, "size_small", eq(settings.scale, 0.8));
-    set_checked(&state.menu, "size_medium", eq(settings.scale, 1.0));
-    set_checked(&state.menu, "size_large", eq(settings.scale, 1.35));
-    set_checked(&state.menu, "hang_clipboard", settings.hang_clipboard);
-    set_checked(&state.menu, "open_at_login", settings.open_at_login);
-    set_checked(&state.menu, "reveal_on_hover", settings.reveal_on_hover);
-    set_checked(&state.menu, "reveal_on_new", settings.reveal_on_new);
-    set_checked(&state.menu, "sounds", settings.sounds);
-    set_checked(&state.menu, "keep_fit", settings.keep_on_line.is_none());
-    set_checked(&state.menu, "keep_25", settings.keep_on_line == Some(25));
-    set_checked(&state.menu, "keep_50", settings.keep_on_line == Some(50));
-    set_checked(&state.menu, "keep_100", settings.keep_on_line == Some(100));
+    let Ok(menu) = state.menu.lock() else {
+        return;
+    };
+    let pinned = app
+        .state::<AppState>()
+        .inner
+        .lock()
+        .map(|g| g.pinned)
+        .unwrap_or(false);
+    set_checked(&menu, "toggle_line", pinned);
+}
+
+pub fn refresh_checks_current(app: &AppHandle) {
+    if let Ok(root) = crate::data_root(app) {
+        let settings = Settings::load(&root);
+        refresh_checks(app, &settings);
+    }
 }
 
 fn set_checked(menu: &Menu<tauri::Wry>, id: &str, checked: bool) {
@@ -232,20 +229,21 @@ fn set_checked(menu: &Menu<tauri::Wry>, id: &str, checked: bool) {
     }
 }
 
-fn eq(a: f64, b: f64) -> bool {
-    (a - b).abs() < 0.01
-}
-
 fn handle_menu(app: &AppHandle, id: &str) -> Result<(), String> {
     match id {
         "toggle_line" => {
-            let revealed = app
-                .state::<AppState>()
-                .inner
-                .lock()
-                .map(|g| g.revealed)
-                .unwrap_or(false);
-            crate::reveal(app, !revealed);
+            let state = app.state::<AppState>();
+            let mut is_pinned = false;
+            if let Ok(mut inner) = state.inner.lock() {
+                inner.pinned = !inner.pinned;
+                is_pinned = inner.pinned;
+            }
+            crate::reveal(app, is_pinned);
+            let Ok(root) = crate::data_root(app) else {
+                return Ok(());
+            };
+            let settings = Settings::load(&root);
+            refresh_checks(app, &settings);
         }
         "take_everything_down" => crate::take_everything_down(app)?,
         "capture_region" => {
@@ -272,14 +270,31 @@ fn handle_menu(app: &AppHandle, id: &str) -> Result<(), String> {
         "open_screenshots_folder" => open_shots_folder(app)?,
         "hang_clipboard" => toggle_hang_clipboard(app)?,
         "open_at_login" => toggle_autostart(app)?,
-        "open_settings" => open_settings_file(app)?,
+        "open_settings" => crate::commands::open_settings_window(app.clone())?,
         "reveal_on_hover" => toggle_reveal_on_hover(app)?,
         "reveal_on_new" => toggle_reveal_on_new(app)?,
         "sounds" => toggle_sounds(app)?,
-        "reload_settings" => crate::apply_settings(app)?,
+        "lang_zh" => apply_language(app, "zh-CN")?,
+        "lang_en" => apply_language(app, "en")?,
+        "reload_settings" => {
+            crate::apply_settings(app)?;
+            rebuild_menu(app).map_err(|e| e.to_string())?;
+        }
         "quit" => app.exit(0),
         _ => {}
     }
+    Ok(())
+}
+
+fn apply_language(app: &AppHandle, lang: &str) -> Result<(), String> {
+    let root = crate::data_root(app)?;
+    let mut settings = Settings::load(&root);
+    if settings.language == lang {
+        return Ok(());
+    }
+    settings.language = lang.to_string();
+    settings.save(&root)?;
+    rebuild_menu(app).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -288,8 +303,6 @@ fn apply_keep_on_line(app: &AppHandle, cap: Option<u32>) -> Result<(), String> {
     let mut settings = Settings::load(&root);
     settings.keep_on_line = cap;
     settings.save(&root)?;
-    // Enforce immediately: the user chose a smaller cap, so drop the overflow
-    // now rather than only on the next capture.
     crate::enforce_keep_on_line(app);
     refresh_checks(app, &settings);
     Ok(())
@@ -354,17 +367,6 @@ fn toggle_sounds(app: &AppHandle) -> Result<(), String> {
     settings.sounds = !settings.sounds;
     settings.save(&root)?;
     refresh_checks(app, &settings);
-    Ok(())
-}
-
-fn open_settings_file(app: &AppHandle) -> Result<(), String> {
-    let root = crate::data_root(app)?;
-    // Ensure the file exists so the editor opens a real file, not an error.
-    let settings = Settings::load(&root);
-    settings.save(&root)?;
-    let path = root.join(crate::settings::SETTINGS_FILE);
-    #[cfg(windows)]
-    let _ = std::process::Command::new("notepad").arg(&path).spawn();
     Ok(())
 }
 

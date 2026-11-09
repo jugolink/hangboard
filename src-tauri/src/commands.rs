@@ -46,9 +46,40 @@ pub fn set_hit_rects(state: State<'_, AppState>, rects: Vec<(f64, f64, f64, f64)
 }
 
 #[tauri::command]
-pub fn set_dragging(state: State<'_, AppState>, dragging: bool) {
+pub fn set_dragging(app: AppHandle, state: State<'_, AppState>, dragging: bool) {
     if let Ok(mut inner) = state.inner.lock() {
         inner.dragging = dragging;
+    }
+    if let Some(hover) = app.try_state::<crate::hover::HoverState>() {
+        if dragging {
+            hover
+                .pass_through
+                .store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    if let Some(window) = app.get_webview_window("line") {
+        if dragging {
+            let _ = window.set_ignore_cursor_events(false);
+        }
+        let mon = app
+            .cursor_position()
+            .ok()
+            .and_then(|c| app.monitor_from_point(c.x, c.y).ok().flatten())
+            .or_else(|| app.primary_monitor().ok().flatten());
+        if let Some(mon) = mon {
+            let size = mon.size();
+            let scale = state.inner.lock().map(|g| g.scale).unwrap_or(1.0);
+            if dragging {
+                // Expand line window to full screen height so card can be dragged out without clipping
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(
+                    size.width,
+                    size.height,
+                )));
+            } else {
+                // Restore to normal strip height and position
+                let _ = crate::window::place_on_monitor(&window, &mon, scale);
+            }
+        }
     }
 }
 
@@ -76,6 +107,7 @@ pub fn discard_item(app: AppHandle, state: State<'_, AppState>, id: String) -> C
             line::delete_file(&dir, &item);
         }
     }
+    crate::clipboard::reset_last_hash();
     crate::persist(&app);
     crate::emit_items(&app);
     Ok(())
@@ -213,8 +245,20 @@ pub fn cancel_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<(
 }
 
 #[tauri::command]
-pub fn hide_line(app: AppHandle) {
+pub fn hide_line(app: AppHandle, state: State<'_, AppState>) {
+    if let Ok(mut inner) = state.inner.lock() {
+        inner.pinned = false;
+    }
+    crate::tray::refresh_checks_current(&app);
     reveal(&app, false);
+}
+
+#[tauri::command]
+pub fn get_language(app: AppHandle) -> String {
+    let Ok(root) = crate::data_root(&app) else {
+        return "zh-CN".into();
+    };
+    crate::settings::Settings::load(&root).language
 }
 
 // ---- preview lightbox ------------------------------------------------------
@@ -525,4 +569,197 @@ fn reveal_in_explorer(path: &str) -> CmdResult<()> {
 fn reveal_in_explorer(path: &str) -> CmdResult<()> {
     let _ = path;
     Err("reveal is Windows-only".to_string())
+}
+
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ShortcutCheckResult {
+    pub valid: bool,
+    pub conflict: bool,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub fn check_shortcut(app: AppHandle, accelerator: String) -> ShortcutCheckResult {
+    let Ok(sc) = accelerator.parse::<Shortcut>() else {
+        return ShortcutCheckResult {
+            valid: false,
+            conflict: false,
+            error: Some("Invalid accelerator syntax / 快捷键格式无效".into()),
+        };
+    };
+
+    let gs = app.global_shortcut();
+    match gs.on_shortcut(sc, |_app, _sc, _ev| {}) {
+        Ok(_) => {
+            let _ = gs.unregister(sc);
+            if let Ok(root) = crate::data_root(&app) {
+                let s = crate::settings::Settings::load(&root);
+                let _ = crate::register_shortcuts(&app, &s);
+            }
+            ShortcutCheckResult {
+                valid: true,
+                conflict: false,
+                error: None,
+            }
+        }
+        Err(e) => {
+            if let Ok(root) = crate::data_root(&app) {
+                let s = crate::settings::Settings::load(&root);
+                let _ = crate::register_shortcuts(&app, &s);
+            }
+            ShortcutCheckResult {
+                valid: false,
+                conflict: true,
+                error: Some(format!("Shortcut conflict / 快捷键冲突或已被占用: {e}")),
+            }
+        }
+    }
+}
+
+#[tauri::command]
+pub fn get_settings(app: AppHandle) -> Result<crate::settings::Settings, String> {
+    let root = crate::data_root(&app)?;
+    Ok(crate::settings::Settings::load(&root))
+}
+
+#[tauri::command]
+pub fn save_settings(
+    app: AppHandle,
+    new_settings: crate::settings::Settings,
+) -> Result<(), String> {
+    let root = crate::data_root(&app)?;
+    new_settings.save(&root)?;
+    crate::apply_settings(&app)?;
+    let _ = crate::tray::rebuild_menu(&app);
+    let _ = app.emit("app:language", &new_settings.language);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn drag_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn open_settings_window(app: AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("settings") {
+        let _ = win.center();
+        let _ = win.show();
+        let _ = win.set_focus();
+        let _ = win.emit("settings:refresh", ());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_settings_window(app: AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("settings") {
+        let _ = win.hide();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_settings_file(app: AppHandle) -> Result<(), String> {
+    let root = crate::data_root(&app)?;
+    let settings = crate::settings::Settings::load(&root);
+    settings.save(&root)?;
+    let path = root.join(crate::settings::SETTINGS_FILE);
+    #[cfg(windows)]
+    let _ = std::process::Command::new("notepad").arg(&path).spawn();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn context_pin(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    let item = context_item(&state)?;
+    crate::window::open_pin_window(&app, &item.id, None, None)?;
+    close_context(app, state)
+}
+
+#[tauri::command]
+pub fn pin_to_desktop(app: AppHandle, id: String, x: Option<f64>, y: Option<f64>) -> CmdResult<()> {
+    // The front end reports the mouse-up point in CSS/logical pixels
+    // (`PointerEvent.screenX/screenY`), which is exactly the coordinate space
+    // `WebviewWindowBuilder::position` expects. Pass them through unchanged so
+    // the pin lands where the user released the pointer. The previous code
+    // ignored these and re-read the live cursor position, which had already
+    // drifted (and could sit outside the expanded drag window), placing the
+    // pin away from the release point.
+    crate::window::open_pin_window(&app, &id, x, y)
+}
+
+#[tauri::command]
+pub fn get_pin_image(state: State<'_, AppState>, id: String) -> CmdResult<String> {
+    let item = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .cloned()
+            .ok_or("no such item")?
+    };
+    line::full_image_data_url(&item)
+}
+
+#[tauri::command]
+pub fn close_pin(app: AppHandle, id: String) -> CmdResult<()> {
+    let label = format!("pin-{}", id);
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.close();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_pin_always_on_top(window: tauri::WebviewWindow, on_top: bool) -> CmdResult<()> {
+    window.set_always_on_top(on_top).map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
+pub struct MyPinInfo {
+    pub id: String,
+    pub data_url: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[tauri::command]
+pub fn get_my_pin_info(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+) -> CmdResult<MyPinInfo> {
+    let label = window.label();
+    let id = label.strip_prefix("pin-").unwrap_or(label).to_string();
+    let item = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .cloned()
+            .ok_or_else(|| format!("item {} not found", id))?
+    };
+    let data_url = line::full_image_data_url(&item)?;
+    let (width, height) = image::image_dimensions(&item.path).unwrap_or((400, 300));
+    Ok(MyPinInfo {
+        id,
+        data_url,
+        width,
+        height,
+    })
+}
+
+#[tauri::command]
+pub fn resize_pinned_window(
+    window: tauri::WebviewWindow,
+    width: f64,
+    height: f64,
+) -> CmdResult<()> {
+    window
+        .set_size(tauri::LogicalSize::new(width, height))
+        .map_err(|e| e.to_string())
 }

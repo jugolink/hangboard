@@ -41,6 +41,8 @@ pub struct Settings {
     pub reveal_over_fullscreen: bool,
     /// Play a sound when a photo hangs or is taken down.
     pub sounds: bool,
+    /// UI language ("zh-CN" or "en").
+    pub language: String,
 }
 
 impl Default for Settings {
@@ -58,6 +60,7 @@ impl Default for Settings {
             reveal_on_hover: true,
             reveal_over_fullscreen: false,
             sounds: false,
+            language: "zh-CN".into(),
         }
     }
 }
@@ -109,6 +112,8 @@ mod tests {
         assert!(s.reveal_on_hover);
         assert!(!s.reveal_over_fullscreen);
         assert!(!s.sounds);
+        assert_eq!(s.language, "zh-CN");
+        assert_eq!(s.language, "zh-CN");
     }
 
     #[test]
@@ -149,6 +154,7 @@ mod tests {
         assert!(s.reveal_on_hover);
         assert!(!s.reveal_over_fullscreen);
         assert!(!s.sounds);
+        assert_eq!(s.language, "zh-CN");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

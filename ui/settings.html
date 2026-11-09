@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hangboard Settings</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <div id="container">
+      <header id="titlebar" data-tauri-drag-region>
+        <div id="title-text" data-tauri-drag-region>偏好设置</div>
+        <button id="btn-close" aria-label="Close">✕</button>
+      </header>
+
+      <main id="content">
+        <!-- Section: Shortcuts -->
+        <section class="group">
+          <h2 class="group-title" id="sec-shortcuts">快捷键配置</h2>
+          <div class="tip-box" id="shortcuts-tip">
+            点击输入框后直接按下组合键（如 Ctrl + Alt + A）。
+          </div>
+
+          <div class="row hotkey-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-region">区域截图</span>
+              <span class="label-secondary" id="desc-region">拖选矩形区域进行截图</span>
+            </div>
+            <div class="hotkey-wrapper">
+              <div class="hotkey-box" id="box-region" tabindex="0">
+                <div class="keys-display" id="keys-region">
+                  <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>H</kbd>
+                </div>
+                <button class="btn-clear" id="clear-region" title="重置">↺</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="row hotkey-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-whole">全屏截图</span>
+              <span class="label-secondary" id="desc-whole">瞬间截取整个屏幕画面</span>
+            </div>
+            <div class="hotkey-wrapper">
+              <div class="hotkey-box" id="box-whole" tabindex="0">
+                <div class="keys-display" id="keys-whole">
+                  <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd>
+                </div>
+                <button class="btn-clear" id="clear-whole" title="重置">↺</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: General -->
+        <section class="group">
+          <h2 class="group-title" id="sec-general">常规选项</h2>
+
+          <div class="row toggle-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-clipboard">自动挂载剪贴板图片</span>
+              <span class="label-secondary" id="desc-clipboard">复制图片（包含第三方截图）时自动挂上晾衣绳</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="chk-clipboard" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="row toggle-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-hover">鼠标悬停展开</span>
+              <span class="label-secondary" id="desc-hover">移至屏幕顶部中央 3px 热区触发下垂</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="chk-hover" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="row toggle-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-reveal-new">新图自动展开与展示</span>
+              <span class="label-secondary" id="desc-reveal-new">截图或复制新图片后自动展开绳索并展示 3 秒</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="chk-reveal-new" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="row toggle-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-sounds">提示音效</span>
+              <span class="label-secondary" id="desc-sounds">新图片挂上晾衣绳时播放提示音</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="chk-sounds" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="row toggle-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-autostart">开机自启动</span>
+              <span class="label-secondary" id="desc-autostart">登录 Windows 时自动启动 Hangboard</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="chk-autostart" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Section: Appearance & Capacity -->
+        <section class="group">
+          <h2 class="group-title" id="sec-display">界面与容量</h2>
+
+          <div class="row select-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-scale">尺寸大小</span>
+              <span class="label-secondary" id="desc-scale">调整晾衣绳及卡片的大小比例</span>
+            </div>
+            <select id="sel-scale">
+              <option value="0.8" id="opt-scale-sm">小 (0.8x)</option>
+              <option value="1.0" id="opt-scale-md">中 (1.0x)</option>
+              <option value="1.35" id="opt-scale-lg">大 (1.35x)</option>
+            </select>
+          </div>
+
+          <div class="row select-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-keep">绳上保留上限</span>
+              <span class="label-secondary" id="desc-keep">超出限制时自动移去最旧的照片（保留钉住的）</span>
+            </div>
+            <select id="sel-keep">
+              <option value="" id="opt-keep-fit">自动适应容量</option>
+              <option value="25">25 张</option>
+              <option value="50">50 张</option>
+              <option value="100">100 张</option>
+            </select>
+          </div>
+
+          <div class="row select-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-lang">语言 / Language</span>
+              <span class="label-secondary" id="desc-lang">界面与托盘显示语言</span>
+            </div>
+            <select id="sel-lang">
+              <option value="zh-CN">简体中文</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+        </section>
+      </main>
+
+      <footer id="footer">
+        <button id="btn-open-file" class="btn-secondary">打开原始文件</button>
+        <div class="footer-actions">
+          <button id="btn-reset" class="btn-secondary">恢复默认</button>
+          <button id="btn-save" class="btn-primary">保存更改</button>
+        </div>
+      </footer>
+    </div>
+
+    <script src="settings.js"></script>
+  </body>
+</html>

@@ -17,7 +17,7 @@ const REVEAL_DELAY: Duration = Duration::from_millis(250);
 /// across the gap between two photos without the line snapping shut.
 const RETRACT_DELAY: Duration = Duration::from_millis(500);
 /// Height of the strip at the very top of the screen that counts as hot.
-const ZONE_HEIGHT: f64 = 3.0;
+const ZONE_HEIGHT: f64 = 8.0;
 const TICK: Duration = Duration::from_millis(33);
 
 pub struct HoverState {
@@ -27,11 +27,12 @@ pub struct HoverState {
     /// What the loop last asked the window for. `true` means click-through
     /// (the strip eats nothing). Cached so we only call the window manager
     /// when the answer actually flips, not on every 30 Hz tick.
-    pass_through: AtomicBool,
+    pub pass_through: AtomicBool,
     /// Whether resting the pointer at the top edge should drop the line. A
     /// cached copy of `settings.reveal_on_hover`, so the 30 Hz loop never
     /// touches disk.
     pub reveal_on_hover: AtomicBool,
+    current_monitor_pos: Mutex<Option<(i32, i32)>>,
 }
 
 impl HoverState {
@@ -42,6 +43,7 @@ impl HoverState {
             running: AtomicBool::new(false),
             pass_through: AtomicBool::new(false),
             reveal_on_hover: AtomicBool::new(true),
+            current_monitor_pos: Mutex::new(None),
         }
     }
 }
@@ -78,8 +80,9 @@ fn band(px: f64, py: f64, top: f64, left: f64, width: f64, height: f64, scale: f
         return false;
     }
     let in_band = py >= top && py < top + ZONE_HEIGHT * scale;
-    let third = width / 3.0;
-    let in_middle = px >= left + third && px < left + 2.0 * third;
+    // Central 84% of the screen width triggers the line (leaves 8% margin on left and right)
+    let margin = width * 0.08;
+    let in_middle = px >= left + margin && px <= left + width - margin;
     in_band && in_middle
 }
 
@@ -135,17 +138,33 @@ pub fn spawn(app: AppHandle) {
         };
 
         let scale = mon.scale_factor();
-        let hover_on = app
-            .state::<HoverState>()
-            .reveal_on_hover
-            .load(Ordering::SeqCst);
-        let hot = hover_on && in_zone(cursor.x, cursor.y, &mon);
+        let hover = app.state::<HoverState>();
         let state = app.state::<AppState>();
-        let (revealed, dragging) = state
+        let (revealed, dragging, pinned, auto_dismiss_at) = state
             .inner
             .lock()
-            .map(|g| (g.revealed, g.dragging))
-            .unwrap_or((false, false));
+            .map(|g| (g.revealed, g.dragging, g.pinned, g.auto_dismiss_at))
+            .unwrap_or((false, false, false, None));
+
+        // Multi-monitor roaming: when line is not revealed and user moves between monitors,
+        // roam the line window to the active monitor.
+        let mon_pos = (mon.position().x, mon.position().y);
+        let mon_changed = {
+            let mut cur_mon = hover.current_monitor_pos.lock().unwrap();
+            if *cur_mon != Some(mon_pos) {
+                *cur_mon = Some(mon_pos);
+                true
+            } else {
+                false
+            }
+        };
+        if mon_changed && !revealed {
+            let s = state.inner.lock().map(|g| g.scale).unwrap_or(1.0);
+            let _ = crate::window::place_on_monitor(&window, &mon, s);
+        }
+
+        let hover_on = hover.reveal_on_hover.load(Ordering::SeqCst);
+        let hot = hover_on && in_zone(cursor.x, cursor.y, &mon);
 
         let Ok(origin) = window.outer_position() else {
             continue;
@@ -180,6 +199,11 @@ pub fn spawn(app: AppHandle) {
             // Inside the zone, on a photo, or mid-drag: cancel any pending
             // retract and start counting toward a reveal.
             *hover.outside_since.lock().unwrap() = None;
+            if auto_dismiss_at.is_some() {
+                if let Ok(mut inner) = state.inner.lock() {
+                    inner.auto_dismiss_at = None;
+                }
+            }
 
             if !revealed {
                 let mut inside = hover.inside_since.lock().unwrap();
@@ -192,6 +216,8 @@ pub fn spawn(app: AppHandle) {
                 // Over a photo counts as intent immediately; the strip is only
                 // a hint, so it drops without the dwell delay.
                 if on_photo || dwell >= REVEAL_DELAY {
+                    let s = state.inner.lock().map(|g| g.scale).unwrap_or(1.0);
+                    let _ = crate::window::place_on_monitor(&window, &mon, s);
                     crate::reveal(&app, true);
                 }
             }
@@ -200,8 +226,18 @@ pub fn spawn(app: AppHandle) {
 
         *hover.inside_since.lock().unwrap() = None;
 
-        if !revealed {
+        if !revealed || pinned {
             continue;
+        }
+
+        // If an auto-dismiss session is active (e.g. from recent capture),
+        // keep the line visible until the session finishes!
+        if let Some(until) = auto_dismiss_at {
+            if std::time::Instant::now() < until {
+                continue;
+            } else if let Ok(mut inner) = state.inner.lock() {
+                inner.auto_dismiss_at = None;
+            }
         }
 
         let mut outside = hover.outside_since.lock().unwrap();
@@ -224,8 +260,8 @@ mod tests {
     #[test]
     fn middle_third_of_the_top_edge_is_hot() {
         assert!(band(960.0, 1.0, 0.0, 0.0, 1920.0, 1080.0, 1.0));
-        assert!(!band(100.0, 1.0, 0.0, 0.0, 1920.0, 1080.0, 1.0));
-        assert!(!band(1800.0, 1.0, 0.0, 0.0, 1920.0, 1080.0, 1.0));
+        assert!(!band(50.0, 1.0, 0.0, 0.0, 1920.0, 1080.0, 1.0));
+        assert!(!band(1850.0, 1.0, 0.0, 0.0, 1920.0, 1080.0, 1.0));
     }
 
     #[test]
@@ -241,8 +277,8 @@ mod tests {
 
     #[test]
     fn zone_height_scales_with_dpi() {
-        // 3 logical pixels at 200% is 6 physical pixels.
-        assert!(band(960.0, 5.0, 0.0, 0.0, 1920.0, 1080.0, 2.0));
-        assert!(!band(960.0, 7.0, 0.0, 0.0, 1920.0, 1080.0, 2.0));
+        // 8 logical pixels at 200% is 16 physical pixels.
+        assert!(band(960.0, 12.0, 0.0, 0.0, 1920.0, 1080.0, 2.0));
+        assert!(!band(960.0, 18.0, 0.0, 0.0, 1920.0, 1080.0, 2.0));
     }
 }

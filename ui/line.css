@@ -32,13 +32,18 @@ body {
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
   background: transparent;
   /* The window is click-through anyway; this stops accidental text
      selection from a dragging pointer. */
   user-select: none;
   -webkit-user-select: none;
   cursor: default;
+}
+
+body.is-dragging #stage,
+body.is-dragging #cards {
+  height: 100%;
 }
 
 /* The window itself never moves; this stage slides up inside it. */
@@ -132,6 +137,57 @@ body {
     0 8px 14px rgba(0, 0, 0, 0.26);
 }
 
+.card.dragging {
+  z-index: 50 !important;
+  transition: none !important;
+  cursor: grabbing !important;
+}
+
+.card.dragging .peg {
+  opacity: 0.5;
+  transform: translateX(-50%) translateY(-6px);
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.card.ready-to-pin {
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.8),
+    0 0 0 2px rgba(59, 130, 246, 0.75),
+    0 16px 32px rgba(0, 0, 0, 0.42) !important;
+}
+
+.card.ready-to-pin::before {
+  content: "📌 释放即可钉在桌面";
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(18, 18, 22, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font: 600 11px/1.2 system-ui, -apple-system, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: pulse-pin 800ms infinite alternate ease-in-out;
+  z-index: 60;
+}
+
+html[lang="en"] .card.ready-to-pin::before {
+  content: "📌 Release to Pin to Desktop";
+}
+
+@keyframes pulse-pin {
+  0% {
+    transform: translateX(-50%) scale(0.96);
+  }
+  100% {
+    transform: translateX(-50%) scale(1.04);
+  }
+}
+
 .card img {
   display: block;
   border-radius: 12px;
@@ -149,6 +205,13 @@ body {
    back to upright. The spring curves are the same stiffness the Swift used.
    No fill-mode: the final keyframe equals the resting transform, so once the
    animation ends the card returns to normal CSS control (hover lift included). */
+/* Pending arrival: while the line is sliding down or hidden, hold the photo
+   invisible so it never flashes at its resting spot before dropping in. */
+.card.pending-arrive {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .card.arriving {
   animation: arrive 720ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -323,39 +386,45 @@ body {
 /* A short "Copied" glass capsule: text and background in one element so the
    label and its pill can never drift apart into a stray white fragment. */
 .card.copied::after {
-  content: "✓ Copied";
+  content: "✓ 已复制";
   position: absolute;
   left: 50%;
-  bottom: -30px;
-  transform: translateX(-50%);
-  padding: 5px 10px;
+  bottom: -32px;
+  transform: translate(-50%, 0);
+  padding: 5px 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.95);
   box-shadow:
-    inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
-    0 2px 6px rgba(0, 0, 0, 0.18);
-  font: 600 11px/1 system-ui, sans-serif;
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.28);
+  font: 600 11px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
   color: #1c1c1e;
   white-space: nowrap;
   animation: fade-up 900ms ease forwards;
   pointer-events: none;
+  z-index: 100;
+}
+
+html[lang="en"] .card.copied::after {
+  content: "✓ Copied";
 }
 
 @keyframes fade-up {
   0% {
     opacity: 0;
-    transform: translateY(2px);
+    transform: translate(-50%, 6px);
   }
   20% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate(-50%, 0);
   }
   70% {
     opacity: 1;
+    transform: translate(-50%, 0);
   }
   100% {
     opacity: 0;
-    transform: translateY(-3px);
+    transform: translate(-50%, -6px);
   }
 }
 
