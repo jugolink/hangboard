@@ -110,7 +110,7 @@ pub fn spawn(app: AppHandle) {
             };
 
             if crate::hang(&app, img).is_ok() {
-                crate::reveal(&app, true);
+                crate::reveal_on_new(&app);
             }
         }
     });
