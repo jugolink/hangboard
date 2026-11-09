@@ -21,6 +21,16 @@ let geo = null;
 let revealed = false;
 let hoveredId = null;
 
+// Track which ids were already on the line, so a re-render can tell a
+// genuinely new photo apart from the rest and give it an arrival animation.
+// The very first render is treated as "nothing is new": the photos were loaded
+// from disk, not just hung.
+let prevIds = new Set();
+let firstRender = true;
+
+/** How long the drop-out animation runs, kept in sync with .card-falling. */
+const FALL_MS = 560;
+
 /** The card top sits this far below the rope: the clothespin is 26px tall
     and overlaps the card by 12px, so 26 - 12 - pinAbove(9.5) = 4.5. */
 const CARD_DROP = 4.5;
@@ -53,6 +63,12 @@ function render() {
   const width = window.innerWidth;
   const count = items.length;
 
+  // Which ids arrived since the last render (a new screenshot or a pasted
+  // image). Only these get the arrival animation; the rest just settle in.
+  const currentIds = new Set(items.map((i) => i.id));
+  const newIds = [...currentIds].filter((id) => !prevIds.has(id));
+  prevIds = currentIds;
+
   cardsEl.innerHTML = "";
   hint.classList.toggle("visible", count === 0 && revealed);
 
@@ -65,8 +81,11 @@ function render() {
   ordered.forEach((item, index) => {
     const { x, y } = spot(index, count, width);
 
+    const isNew = newIds.includes(item.id);
+
     const card = document.createElement("div");
     card.className = "card" + (item.kept ? " kept" : "");
+    if (isNew && !firstRender) card.classList.add("arriving");
     card.dataset.id = item.id;
 
     const w = geo.card_width;
@@ -113,7 +132,19 @@ function render() {
     card.addEventListener("click", async (event) => {
       if (event.target === down || down.contains(event.target)) {
         down.style.pointerEvents = "none";
-        await invoke("discard_item", { id: item.id });
+        // Play the drop-out animation, then hand off to Rust to delete and
+        // re-render. The card is cloned so the real one can leave the DOM and
+        // the clone carries the same left/top/tilt through the fall.
+        const gone = card.cloneNode(true);
+        gone.classList.remove("arriving");
+        gone.classList.add("falling");
+        gone.style.pointerEvents = "none";
+        cardsEl.appendChild(gone);
+        card.style.visibility = "hidden";
+        setTimeout(async () => {
+          gone.remove();
+          await invoke("discard_item", { id: item.id });
+        }, FALL_MS);
         return;
       }
       if (event.target === pin || pin.contains(event.target)) {
@@ -142,6 +173,10 @@ function render() {
 
   // Rust needs these to decide click-through: it cannot see the CSS layout.
   void invoke("set_hit_rects", { rects });
+
+  // After the first full render, treat every future render as "the line has
+  // already been drawn once", so only later arrivals animate in.
+  firstRender = false;
 }
 
 function applyGeometry(g) {
