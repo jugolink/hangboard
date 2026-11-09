@@ -148,6 +148,14 @@ pub fn reveal_on_new(app: &AppHandle) {
         return;
     };
     if settings::Settings::load(&root).reveal_on_new {
+        if let Some(window) = app.get_webview_window("line") {
+            if let Ok(cursor) = app.cursor_position() {
+                if let Ok(Some(mon)) = app.monitor_from_point(cursor.x, cursor.y) {
+                    let s = app.state::<AppState>().inner.lock().map(|g| g.scale).unwrap_or(1.0);
+                    let _ = window::place_on_monitor(&window, &mon, s);
+                }
+            }
+        }
         if let Ok(mut inner) = app.state::<AppState>().inner.lock() {
             inner.auto_dismiss_at =
                 Some(std::time::Instant::now() + std::time::Duration::from_millis(3000));
@@ -384,11 +392,18 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Closing either window must not end the session: the line is
-            // meant to live in the background. Hide instead.
+            // Background windows hide instead of closing; pinned floating windows destroy.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+                let label = window.label();
+                if label == "line"
+                    || label == "settings"
+                    || label == "preview"
+                    || label == "context"
+                    || label == "overlay"
+                {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -415,6 +430,7 @@ pub fn run() {
             commands::context_copy,
             commands::context_open,
             commands::context_preview,
+            commands::context_pin,
             commands::context_reveal,
             commands::context_export,
             commands::context_discard,
@@ -427,6 +443,11 @@ pub fn run() {
             commands::close_settings_window,
             commands::open_settings_file,
             commands::drag_window,
+            commands::pin_to_desktop,
+            commands::get_pin_image,
+            commands::close_pin,
+            commands::set_pin_always_on_top,
+            commands::resize_pinned_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hangboard");

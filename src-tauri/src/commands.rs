@@ -637,3 +637,55 @@ pub fn open_settings_file(app: AppHandle) -> Result<(), String> {
     let _ = std::process::Command::new("notepad").arg(&path).spawn();
     Ok(())
 }
+
+#[tauri::command]
+pub fn context_pin(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    let item = context_item(&state)?;
+    crate::window::open_pin_window(&app, &item.id, None, None)?;
+    close_context(app, state)
+}
+
+#[tauri::command]
+pub fn pin_to_desktop(
+    app: AppHandle,
+    id: String,
+    x: Option<f64>,
+    y: Option<f64>,
+) -> CmdResult<()> {
+    crate::window::open_pin_window(&app, &id, x, y)
+}
+
+#[tauri::command]
+pub fn get_pin_image(state: State<'_, AppState>, id: String) -> CmdResult<String> {
+    let item = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .cloned()
+            .ok_or("no such item")?
+    };
+    line::full_image_data_url(&item)
+}
+
+#[tauri::command]
+pub fn close_pin(app: AppHandle, id: String) -> CmdResult<()> {
+    let label = format!("pin-{}", id);
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.close();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_pin_always_on_top(window: tauri::WebviewWindow, on_top: bool) -> CmdResult<()> {
+    window.set_always_on_top(on_top).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn resize_pinned_window(window: tauri::WebviewWindow, width: f64, height: f64) -> CmdResult<()> {
+    window
+        .set_size(tauri::LogicalSize::new(width, height))
+        .map_err(|e| e.to_string())
+}

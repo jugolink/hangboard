@@ -32,6 +32,7 @@ pub struct HoverState {
     /// cached copy of `settings.reveal_on_hover`, so the 30 Hz loop never
     /// touches disk.
     pub reveal_on_hover: AtomicBool,
+    current_monitor_pos: Mutex<Option<(i32, i32)>>,
 }
 
 impl HoverState {
@@ -42,6 +43,7 @@ impl HoverState {
             running: AtomicBool::new(false),
             pass_through: AtomicBool::new(false),
             reveal_on_hover: AtomicBool::new(true),
+            current_monitor_pos: Mutex::new(None),
         }
     }
 }
@@ -135,17 +137,35 @@ pub fn spawn(app: AppHandle) {
         };
 
         let scale = mon.scale_factor();
-        let hover_on = app
-            .state::<HoverState>()
-            .reveal_on_hover
-            .load(Ordering::SeqCst);
-        let hot = hover_on && in_zone(cursor.x, cursor.y, &mon);
+        let hover = app.state::<HoverState>();
         let state = app.state::<AppState>();
         let (revealed, dragging, pinned, auto_dismiss_at) = state
             .inner
             .lock()
             .map(|g| (g.revealed, g.dragging, g.pinned, g.auto_dismiss_at))
             .unwrap_or((false, false, false, None));
+
+        // Multi-monitor roaming: when line is not revealed and user moves between monitors,
+        // roam the line window to the active monitor.
+        let mon_pos = (mon.position().x, mon.position().y);
+        let mon_changed = {
+            let mut cur_mon = hover.current_monitor_pos.lock().unwrap();
+            if *cur_mon != Some(mon_pos) {
+                *cur_mon = Some(mon_pos);
+                true
+            } else {
+                false
+            }
+        };
+        if mon_changed && !revealed {
+            let s = state.inner.lock().map(|g| g.scale).unwrap_or(1.0);
+            let _ = crate::window::place_on_monitor(&window, &mon, s);
+        }
+
+        let hover_on = hover
+            .reveal_on_hover
+            .load(Ordering::SeqCst);
+        let hot = hover_on && in_zone(cursor.x, cursor.y, &mon);
 
         let Ok(origin) = window.outer_position() else {
             continue;

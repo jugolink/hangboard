@@ -157,9 +157,86 @@ function render() {
 
     rects.push([x - w / 2, y + CARD_DROP, w, h]);
 
+    let activeDrag = null;
+    let lastDragEndedAt = 0;
+
+    card.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest(".corner")) return;
+      activeDrag = {
+        id: item.id,
+        startX: e.clientX,
+        startY: e.clientY,
+        screenX: e.screenX,
+        screenY: e.screenY,
+        dx: 0,
+        dy: 0,
+        isDragging: false,
+      };
+      try {
+        card.setPointerCapture(e.pointerId);
+      } catch {}
+    });
+
+    card.addEventListener("pointermove", (e) => {
+      if (!activeDrag || activeDrag.id !== item.id) return;
+      const dx = e.clientX - activeDrag.startX;
+      const dy = e.clientY - activeDrag.startY;
+      activeDrag.dx = dx;
+      activeDrag.dy = dy;
+      activeDrag.screenX = e.screenX;
+      activeDrag.screenY = e.screenY;
+
+      if (!activeDrag.isDragging && Math.hypot(dx, dy) > 6) {
+        activeDrag.isDragging = true;
+        card.classList.add("dragging");
+        void invoke("set_dragging", { dragging: true });
+      }
+
+      if (activeDrag.isDragging) {
+        const tilt = parseFloat(card.style.getPropertyValue("--tilt")) || 0;
+        card.style.transform = `translate(${dx}px, ${dy}px) rotate(${tilt + dx * 0.04}deg) scale(1.04)`;
+        if (dy > 140) {
+          card.classList.add("ready-to-pin");
+        } else {
+          card.classList.remove("ready-to-pin");
+        }
+      }
+    });
+
+    const finishDrag = async (e) => {
+      if (!activeDrag || activeDrag.id !== item.id) return;
+      const { isDragging, dy, screenX, screenY } = activeDrag;
+      activeDrag = null;
+      try {
+        card.releasePointerCapture(e.pointerId);
+      } catch {}
+
+      card.classList.remove("dragging");
+      card.classList.remove("ready-to-pin");
+      card.style.transform = "";
+
+      void invoke("set_dragging", { dragging: false });
+
+      if (isDragging) {
+        lastDragEndedAt = Date.now();
+        if (dy > 140) {
+          await invoke("pin_to_desktop", {
+            id: item.id,
+            x: screenX,
+            y: screenY,
+          });
+        }
+      }
+    };
+
+    card.addEventListener("pointerup", finishDrag);
+    card.addEventListener("pointercancel", finishDrag);
+
     // One click copies. No double-click handler, so there is no interval to
     // wait out before the clipboard changes.
     card.addEventListener("click", async (event) => {
+      if (Date.now() - lastDragEndedAt < 300) return;
       if (event.target === down || down.contains(event.target)) {
         down.style.pointerEvents = "none";
         // Play the drop-out animation, then hand off to Rust to delete and

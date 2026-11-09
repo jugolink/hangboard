@@ -82,6 +82,15 @@ pub fn window_height(scale: f64) -> f64 {
     geometry(scale).panel_height + 24.0
 }
 
+/// Position and size the line window for a specific monitor.
+pub fn place_on_monitor(window: &tauri::WebviewWindow, mon: &tauri::Monitor, scale: f64) -> Result<(), String> {
+    let (ox, oy) = logical_origin(mon);
+    let (mw, _mh) = logical_size(mon);
+    let _ = window.set_size(tauri::LogicalSize::new(mw, window_height(scale)));
+    let _ = window.set_position(tauri::LogicalPosition::new(ox, oy));
+    Ok(())
+}
+
 /// Size and park the line window at the top edge.
 pub fn place(app: &AppHandle) -> Result<(), String> {
     let window = app
@@ -91,23 +100,13 @@ pub fn place(app: &AppHandle) -> Result<(), String> {
         .primary_monitor()
         .map_err(|e| e.to_string())?
         .ok_or("no primary monitor")?;
-
-    let (ox, oy) = logical_origin(&mon);
-    let (mw, _mh) = logical_size(&mon);
     let scale = app
         .state::<AppState>()
         .inner
         .lock()
         .map(|g| g.scale)
         .unwrap_or(1.0);
-
-    window
-        .set_size(tauri::LogicalSize::new(mw, window_height(scale)))
-        .map_err(|e| e.to_string())?;
-    window
-        .set_position(tauri::LogicalPosition::new(ox, oy))
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    place_on_monitor(&window, &mon, scale)
 }
 
 /// Show or retract the line.
@@ -299,4 +298,85 @@ pub fn emit_items(app: &AppHandle) {
         .map(|g| g.items.clone())
         .unwrap_or_default();
     let _ = app.emit("line:items", items);
+}
+
+/// Open a lightweight floating pinned window on the desktop for the given item.
+pub fn open_pin_window(
+    app: &AppHandle,
+    id: &str,
+    target_x: Option<f64>,
+    target_y: Option<f64>,
+) -> Result<(), String> {
+    let label = format!("pin-{}", id);
+    if let Some(win) = app.get_webview_window(&label) {
+        let _ = win.show();
+        let _ = win.set_focus();
+        return Ok(());
+    }
+
+    let item = {
+        let state = app.state::<AppState>();
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .cloned()
+            .ok_or("no such item")?
+    };
+
+    let (img_w, img_h) = image::image_dimensions(&item.path).unwrap_or((400, 300));
+    let aspect = if img_h > 0 {
+        img_w as f64 / img_h as f64
+    } else {
+        1.0
+    };
+
+    let max_w = 720.0;
+    let max_h = 540.0;
+    let mut win_w = img_w as f64;
+    let mut win_h = img_h as f64;
+
+    if win_w > max_w {
+        win_w = max_w;
+        win_h = win_w / aspect;
+    }
+    if win_h > max_h {
+        win_h = max_h;
+        win_w = win_h * aspect;
+    }
+    win_w = win_w.max(160.0);
+    win_h = win_h.max(120.0);
+
+    let profile_base = crate::data_root(app)
+        .map(|r| r.join("profiles"))
+        .unwrap_or_else(|_| std::path::PathBuf::from("webview2"));
+    let pin_profile = profile_base.join("pin");
+    let _ = std::fs::create_dir_all(&pin_profile);
+
+    let url = format!("pin.html?id={}", id);
+    let mut builder = tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App(url.into()))
+        .data_directory(pin_profile)
+        .title("Hangboard Pin")
+        .inner_size(win_w, win_h)
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .resizable(true)
+        .always_on_top(true)
+        .focused(true)
+        .visible(false);
+
+    if let (Some(x), Some(y)) = (target_x, target_y) {
+        let pos_x = (x - win_w / 2.0).max(0.0);
+        let pos_y = (y - win_h / 2.0).max(0.0);
+        builder = builder.position(pos_x, pos_y);
+    } else {
+        builder = builder.center();
+    }
+
+    let win = builder.build().map_err(|e| e.to_string())?;
+    let _ = win.show();
+    let _ = win.set_focus();
+    Ok(())
 }

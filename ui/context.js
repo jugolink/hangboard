@@ -8,6 +8,7 @@ const LABELS = {
     copy: "复制",
     open: "打开",
     preview: "快速查看",
+    pin: "钉在桌面",
     markup: "标注…",
     reveal: "在资源管理器中显示",
     export: "保存到桌面",
@@ -19,6 +20,7 @@ const LABELS = {
     copy: "Copy",
     open: "Open",
     preview: "Quick Look",
+    pin: "Pin to Desktop",
     markup: "Mark Up…",
     reveal: "Show in Explorer",
     export: "Save to Desktop",
@@ -42,6 +44,7 @@ const ACTION = {
   copy: "context_copy",
   open: "context_open",
   preview: "open_preview",
+  pin: "context_pin",
   markup: null,
   reveal: "context_reveal",
   export: "context_export",
@@ -53,6 +56,10 @@ const ACTION = {
 async function run(action) {
   if (action === "preview") {
     await invoke("context_preview");
+    return;
+  }
+  if (action === "pin") {
+    await invoke("context_pin");
     return;
   }
   if (action === "markup") {
