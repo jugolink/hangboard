@@ -76,6 +76,7 @@ pub fn discard_item(app: AppHandle, state: State<'_, AppState>, id: String) -> C
             line::delete_file(&dir, &item);
         }
     }
+    crate::clipboard::reset_last_hash();
     crate::persist(&app);
     crate::emit_items(&app);
     Ok(())

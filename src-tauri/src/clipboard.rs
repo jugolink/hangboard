@@ -9,10 +9,10 @@
 //! is exactly `changeCount` on macOS, and it is what lets us distinguish
 //! "some app copied a picture" from "we just put a picture back out".
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::time::Duration;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 /// Cap what we are willing to copy out: 80 megapixels and 64 MiB of decoded
 /// RGBA bytes, matching Tendedero's guards against a pathological clipboard.
@@ -26,6 +26,13 @@ const TICK: Duration = Duration::from_millis(500);
 /// Sequence number of the most recent write *we* made. The watcher skips
 /// this one so copying a photo back out does not immediately re-hang it.
 static OWN_SEQ: AtomicU32 = AtomicU32::new(0);
+
+/// Signature of the most recent image processed by the clipboard watcher.
+static LAST_CLIPBOARD_HASH: AtomicU64 = AtomicU64::new(0);
+
+pub fn reset_last_hash() {
+    LAST_CLIPBOARD_HASH.store(0, Ordering::SeqCst);
+}
 
 /// Whether the watcher thread is already running.
 static RUNNING: AtomicBool = AtomicBool::new(false);
@@ -255,6 +262,22 @@ pub fn spawn(app: AppHandle) {
             let Some(img) = img else {
                 continue;
             };
+
+            let hash = crate::line::image_hash(&img);
+            let last_hash = LAST_CLIPBOARD_HASH.load(Ordering::SeqCst);
+            if last_hash == hash && hash != 0 {
+                let still_on_line = app
+                    .state::<crate::state::AppState>()
+                    .inner
+                    .lock()
+                    .map(|inner| inner.items.iter().any(|i| i.hash == hash))
+                    .unwrap_or(false);
+                if still_on_line {
+                    crate::reveal_on_new(&app);
+                    continue;
+                }
+            }
+            LAST_CLIPBOARD_HASH.store(hash, Ordering::SeqCst);
 
             if crate::hang(&app, img).is_ok() {
                 crate::reveal_on_new(&app);

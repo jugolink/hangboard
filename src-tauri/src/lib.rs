@@ -159,6 +159,25 @@ pub fn reveal_on_new(app: &AppHandle) {
 /// Hang an already-finished image (used by the overlay and by future
 /// screenshot folders).
 pub fn hang(app: &AppHandle, img: image::RgbaImage) -> Result<Item, String> {
+    let hash = line::image_hash(&img);
+
+    // If an identical image is already hanging on the line, avoid duplicating files
+    // and cards. If it's already the head item, do nothing; if older, bring it to front.
+    if let Ok(mut inner) = app.state::<AppState>().inner.lock() {
+        if let Some(pos) = inner.items.iter().position(|i| i.hash == hash && hash != 0) {
+            if pos == 0 {
+                return Ok(inner.items[0].clone());
+            }
+            let mut item = inner.items.remove(pos);
+            item.added_at = now_millis() as i64;
+            inner.items.insert(0, item.clone());
+            drop(inner);
+            persist(app);
+            emit_items(app);
+            return Ok(item);
+        }
+    }
+
     let dir = shots_dir(app)?;
     let thumb_h = state::geometry(1.0).photo_max_height as u32;
     let item = line::ingest(img, &dir, now_millis(), thumb_h)?;
@@ -218,6 +237,7 @@ pub fn take_everything_down(app: &AppHandle) -> Result<(), String> {
             line::delete_file(&dir, &item);
         }
     }
+    crate::clipboard::reset_last_hash();
     persist(app);
     emit_items(app);
     Ok(())

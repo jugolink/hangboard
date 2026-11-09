@@ -20,6 +20,8 @@ pub struct Item {
     pub aspect: f64,
     pub kept: bool,
     pub added_at: i64,
+    #[serde(default)]
+    pub hash: u64,
 }
 
 /// A screenshot held in memory between "freeze the screen" and "cut this

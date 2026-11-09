@@ -6,6 +6,7 @@
 
 use crate::state::Item;
 use image::RgbaImage;
+use std::hash::{DefaultHasher, Hasher};
 use std::path::{Path, PathBuf};
 
 pub const SHOTS_DIR: &str = "shots";
@@ -21,6 +22,28 @@ pub fn shot_path(dir: &Path, id: &str) -> PathBuf {
 
 fn ensure_dirs(dir: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)
+}
+
+/// Fast 64-bit signature of an image's dimensions and pixel samples.
+pub fn image_hash(img: &RgbaImage) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    hasher.write_u32(img.width());
+    hasher.write_u32(img.height());
+    let raw = img.as_raw();
+    hasher.write_usize(raw.len());
+    if raw.len() <= 128 * 1024 {
+        hasher.write(raw);
+    } else {
+        let chunk = 8192;
+        hasher.write(&raw[..chunk]);
+        let step = raw.len() / 8;
+        for i in 1..8 {
+            let start = i * step;
+            hasher.write(&raw[start..start + chunk]);
+        }
+        hasher.write(&raw[raw.len() - chunk..]);
+    }
+    hasher.finish()
 }
 
 /// A tilt derived from the id: stable across restarts, different per photo.
@@ -85,6 +108,7 @@ pub fn thumbnail(img: &RgbaImage, max_height: u32) -> RgbaImage {
 pub fn ingest(img: RgbaImage, dir: &Path, now_millis: u128, thumb_h: u32) -> Result<Item, String> {
     ensure_dirs(dir).map_err(|e| e.to_string())?;
 
+    let hash = image_hash(&img);
     let id = new_id(now_millis);
     let path = shot_path(dir, &id);
 
@@ -107,6 +131,7 @@ pub fn ingest(img: RgbaImage, dir: &Path, now_millis: u128, thumb_h: u32) -> Res
         kept: false,
         added_at: now_millis as i64,
         id,
+        hash,
     })
 }
 
@@ -135,6 +160,9 @@ pub fn load_items(root: &Path, thumb_h: u32) -> Vec<Item> {
             } else {
                 img.width() as f64 / img.height() as f64
             };
+            if item.hash == 0 {
+                item.hash = image_hash(&img);
+            }
             item.thumb = data_url(&thumbnail(&img, thumb_h)).ok()?;
             Some(item)
         })
@@ -232,6 +260,17 @@ mod tests {
     }
 
     #[test]
+    fn image_hash_matches_for_identical_pixels() {
+        let a = img(100, 100);
+        let b = img(100, 100);
+        assert_eq!(image_hash(&a), image_hash(&b));
+        assert_ne!(image_hash(&a), 0);
+
+        let c = img(100, 101);
+        assert_ne!(image_hash(&a), image_hash(&c));
+    }
+
+    #[test]
     fn tilt_is_stable_and_bounded() {
         let a = tilt_for("abc");
         assert_eq!(a, tilt_for("abc"));
@@ -306,6 +345,7 @@ mod tests {
             aspect: 1.0,
             kept: false,
             added_at: 0,
+            hash: 0,
         };
         delete_file(&shots, &item);
         assert!(outside.exists());
@@ -322,6 +362,7 @@ mod tests {
             aspect: 1.0,
             kept,
             added_at: 0,
+            hash: 0,
         };
         // newest-first: a (newest) .. e (oldest); b and d are pinned.
         let items = vec![
