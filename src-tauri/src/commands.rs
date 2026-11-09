@@ -52,14 +52,17 @@ pub fn set_dragging(app: AppHandle, state: State<'_, AppState>, dragging: bool) 
     }
     if let Some(hover) = app.try_state::<crate::hover::HoverState>() {
         if dragging {
-            hover.pass_through.store(false, std::sync::atomic::Ordering::SeqCst);
+            hover
+                .pass_through
+                .store(false, std::sync::atomic::Ordering::SeqCst);
         }
     }
     if let Some(window) = app.get_webview_window("line") {
         if dragging {
             let _ = window.set_ignore_cursor_events(false);
         }
-        let mon = app.cursor_position()
+        let mon = app
+            .cursor_position()
             .ok()
             .and_then(|c| app.monitor_from_point(c.x, c.y).ok().flatten())
             .or_else(|| app.primary_monitor().ok().flatten());
@@ -68,7 +71,10 @@ pub fn set_dragging(app: AppHandle, state: State<'_, AppState>, dragging: bool) 
             let scale = state.inner.lock().map(|g| g.scale).unwrap_or(1.0);
             if dragging {
                 // Expand line window to full screen height so card can be dragged out without clipping
-                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(size.width, size.height)));
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(
+                    size.width,
+                    size.height,
+                )));
             } else {
                 // Restore to normal strip height and position
                 let _ = crate::window::place_on_monitor(&window, &mon, scale);
@@ -619,7 +625,10 @@ pub fn get_settings(app: AppHandle) -> Result<crate::settings::Settings, String>
 }
 
 #[tauri::command]
-pub fn save_settings(app: AppHandle, new_settings: crate::settings::Settings) -> Result<(), String> {
+pub fn save_settings(
+    app: AppHandle,
+    new_settings: crate::settings::Settings,
+) -> Result<(), String> {
     let root = crate::data_root(&app)?;
     new_settings.save(&root)?;
     crate::apply_settings(&app)?;
@@ -671,23 +680,15 @@ pub fn context_pin(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> 
 }
 
 #[tauri::command]
-pub fn pin_to_desktop(
-    app: AppHandle,
-    id: String,
-    x: Option<f64>,
-    y: Option<f64>,
-) -> CmdResult<()> {
-    let target = if let Ok(cursor) = app.cursor_position() {
-        if let Ok(Some(mon)) = app.monitor_from_point(cursor.x, cursor.y) {
-            let s = mon.scale_factor();
-            (Some(cursor.x / s), Some(cursor.y / s))
-        } else {
-            (x, y)
-        }
-    } else {
-        (x, y)
-    };
-    crate::window::open_pin_window(&app, &id, target.0, target.1)
+pub fn pin_to_desktop(app: AppHandle, id: String, x: Option<f64>, y: Option<f64>) -> CmdResult<()> {
+    // The front end reports the mouse-up point in CSS/logical pixels
+    // (`PointerEvent.screenX/screenY`), which is exactly the coordinate space
+    // `WebviewWindowBuilder::position` expects. Pass them through unchanged so
+    // the pin lands where the user released the pointer. The previous code
+    // ignored these and re-read the live cursor position, which had already
+    // drifted (and could sit outside the expanded drag window), placing the
+    // pin away from the release point.
+    crate::window::open_pin_window(&app, &id, x, y)
 }
 
 #[tauri::command]
@@ -753,7 +754,11 @@ pub fn get_my_pin_info(
 }
 
 #[tauri::command]
-pub fn resize_pinned_window(window: tauri::WebviewWindow, width: f64, height: f64) -> CmdResult<()> {
+pub fn resize_pinned_window(
+    window: tauri::WebviewWindow,
+    width: f64,
+    height: f64,
+) -> CmdResult<()> {
     window
         .set_size(tauri::LogicalSize::new(width, height))
         .map_err(|e| e.to_string())

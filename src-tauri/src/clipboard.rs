@@ -67,6 +67,7 @@ fn too_big(width: usize, height: usize, byte_len: usize) -> bool {
 }
 
 #[cfg(windows)]
+#[allow(clippy::upper_case_acronyms)] // Win32 typedefs mirror the platform names
 fn read_windows_clipboard() -> Option<image::RgbaImage> {
     use std::ffi::c_void;
     use std::ptr;

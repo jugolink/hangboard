@@ -163,9 +163,7 @@ pub fn spawn(app: AppHandle) {
             let _ = crate::window::place_on_monitor(&window, &mon, s);
         }
 
-        let hover_on = hover
-            .reveal_on_hover
-            .load(Ordering::SeqCst);
+        let hover_on = hover.reveal_on_hover.load(Ordering::SeqCst);
         let hot = hover_on && in_zone(cursor.x, cursor.y, &mon);
 
         let Ok(origin) = window.outer_position() else {

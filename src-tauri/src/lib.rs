@@ -151,7 +151,12 @@ pub fn reveal_on_new(app: &AppHandle) {
         if let Some(window) = app.get_webview_window("line") {
             if let Ok(cursor) = app.cursor_position() {
                 if let Ok(Some(mon)) = app.monitor_from_point(cursor.x, cursor.y) {
-                    let s = app.state::<AppState>().inner.lock().map(|g| g.scale).unwrap_or(1.0);
+                    let s = app
+                        .state::<AppState>()
+                        .inner
+                        .lock()
+                        .map(|g| g.scale)
+                        .unwrap_or(1.0);
                     let _ = window::place_on_monitor(&window, &mon, s);
                 }
             }

@@ -93,8 +93,12 @@ pub fn place_on_monitor(
     let s = mon.scale_factor();
     let phys_h = (window_height(scale) * s).round() as u32;
 
-    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(size.width, phys_h)));
-    let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(pos.x, pos.y)));
+    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(
+        size.width, phys_h,
+    )));
+    let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition::new(
+        pos.x, pos.y,
+    )));
     Ok(())
 }
 
@@ -145,7 +149,12 @@ pub fn reveal(app: &AppHandle, on: bool) {
     if on {
         if let Ok(cursor) = app.cursor_position() {
             if let Ok(Some(mon)) = app.monitor_from_point(cursor.x, cursor.y) {
-                let s = app.state::<AppState>().inner.lock().map(|g| g.scale).unwrap_or(1.0);
+                let s = app
+                    .state::<AppState>()
+                    .inner
+                    .lock()
+                    .map(|g| g.scale)
+                    .unwrap_or(1.0);
                 let _ = place_on_monitor(&window, &mon, s);
             }
         }
@@ -329,7 +338,9 @@ pub fn open_pin_window(
                 let h = size.height as f64 / s;
                 let pos_x = x - w / 2.0;
                 let pos_y = y - h / 2.0;
-                let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(pos_x, pos_y)));
+                let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(
+                    pos_x, pos_y,
+                )));
             }
         }
         let _ = win.show();
@@ -377,17 +388,18 @@ pub fn open_pin_window(
     let pin_profile = profile_base.join(format!("pin-{}", id));
     let _ = std::fs::create_dir_all(&pin_profile);
 
-    let mut builder = tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App("pin.html".into()))
-        .data_directory(pin_profile)
-        .title("Hangboard Pin")
-        .inner_size(win_w, win_h)
-        .decorations(false)
-        .transparent(true)
-        .shadow(false)
-        .resizable(true)
-        .always_on_top(true)
-        .focused(true)
-        .visible(false);
+    let mut builder =
+        tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App("pin.html".into()))
+            .data_directory(pin_profile)
+            .title("Hangboard Pin")
+            .inner_size(win_w, win_h)
+            .decorations(false)
+            .transparent(true)
+            .shadow(false)
+            .resizable(true)
+            .always_on_top(true)
+            .focused(true)
+            .visible(false);
 
     if let (Some(x), Some(y)) = (target_x, target_y) {
         let pos_x = x - win_w / 2.0;

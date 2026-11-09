@@ -103,7 +103,13 @@ pub fn create_menu(
     )?;
     let sep1 = PredefinedMenuItem::separator(app)?;
 
-    let region = MenuItem::with_id(app, "capture_region", tr.capture_region(), true, None::<&str>)?;
+    let region = MenuItem::with_id(
+        app,
+        "capture_region",
+        tr.capture_region(),
+        true,
+        None::<&str>,
+    )?;
     let whole = MenuItem::with_id(app, "capture_whole", tr.capture_whole(), true, None::<&str>)?;
     let open_folder = MenuItem::with_id(
         app,
@@ -114,13 +120,8 @@ pub fn create_menu(
     )?;
     let sep2 = PredefinedMenuItem::separator(app)?;
 
-    let open_settings = MenuItem::with_id(
-        app,
-        "open_settings",
-        tr.open_settings(),
-        true,
-        None::<&str>,
-    )?;
+    let open_settings =
+        MenuItem::with_id(app, "open_settings", tr.open_settings(), true, None::<&str>)?;
     let sep3 = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", tr.quit(), true, None::<&str>)?;
 

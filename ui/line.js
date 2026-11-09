@@ -173,14 +173,13 @@ function render() {
       let isDragging = false;
       let isReadyToPin = false;
 
-      // 鼠标按下即刻进入预备拖拽：扩充窗口到全屏并强制锁定为非穿透
+      // A click still has to reach the card's own "click" listener for the
+      // copy action, so do NOT capture the pointer (pointer capture would
+      // swallow the click). The window-level move/up listeners below track
+      // the drag instead.
       isGlobalDragging = true;
       document.body.classList.add("is-dragging");
       void invoke("set_dragging", { dragging: true });
-
-      try {
-        card.setPointerCapture(e.pointerId);
-      } catch (_) {}
 
       const onPointerMove = (ev) => {
         const dx = ev.clientX - startClientX;
@@ -213,9 +212,6 @@ function render() {
       };
 
       const finishDrag = async (ev) => {
-        try {
-          card.releasePointerCapture(e.pointerId);
-        } catch (_) {}
         window.removeEventListener("pointermove", onPointerMove);
         window.removeEventListener("pointerup", finishDrag);
         window.removeEventListener("pointercancel", finishDrag);
@@ -313,6 +309,15 @@ function render() {
 
     card.addEventListener("mouseenter", () => {
       hoveredId = item.id;
+      // A stray pointerup (e.g. released outside the window while the hover
+      // loop was mid-resize) can leave `dragging` latched true and pass-through
+      // disabled, which makes every later click fall through instead of
+      // copying. Re-asserting false on enter is cheap and self-heals — but only
+      // when we are not mid-drag, since the expanding window can shift the card
+      // under the pointer and fire this handler during an active drag.
+      if (!isGlobalDragging) {
+        void invoke("set_dragging", { dragging: false });
+      }
     });
 
     card.addEventListener("mouseleave", () => {
