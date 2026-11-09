@@ -527,7 +527,7 @@ fn handle_menu(app: &AppHandle, id: &str) -> Result<(), String> {
         "open_screenshots_folder" => open_shots_folder(app)?,
         "hang_clipboard" => toggle_hang_clipboard(app)?,
         "open_at_login" => toggle_autostart(app)?,
-        "open_settings" => crate::commands::open_settings_window(app)?,
+        "open_settings" => crate::commands::open_settings_window(app.clone())?,
         "reveal_on_hover" => toggle_reveal_on_hover(app)?,
         "reveal_on_new" => toggle_reveal_on_new(app)?,
         "sounds" => toggle_sounds(app)?,
@@ -624,16 +624,6 @@ fn toggle_sounds(app: &AppHandle) -> Result<(), String> {
     settings.sounds = !settings.sounds;
     settings.save(&root)?;
     refresh_checks(app, &settings);
-    Ok(())
-}
-
-fn open_settings_file(app: &AppHandle) -> Result<(), String> {
-    let root = crate::data_root(app)?;
-    let settings = Settings::load(&root);
-    settings.save(&root)?;
-    let path = root.join(crate::settings::SETTINGS_FILE);
-    #[cfg(windows)]
-    let _ = std::process::Command::new("notepad").arg(&path).spawn();
     Ok(())
 }
 

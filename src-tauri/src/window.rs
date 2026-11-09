@@ -173,10 +173,12 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let overlay_profile = profile_base.join("overlay");
     let preview_profile = profile_base.join("preview");
     let context_profile = profile_base.join("context");
+    let settings_profile = profile_base.join("settings");
     let _ = std::fs::create_dir_all(&line_profile);
     let _ = std::fs::create_dir_all(&overlay_profile);
     let _ = std::fs::create_dir_all(&preview_profile);
     let _ = std::fs::create_dir_all(&context_profile);
+    let _ = std::fs::create_dir_all(&settings_profile);
 
     WebviewWindowBuilder::new(app, "line", WebviewUrl::App("index.html".into()))
         .data_directory(line_profile)
@@ -256,7 +258,6 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .visible(false)
         .build()?;
 
-    let settings_profile = root.join("webviews").join("settings");
     WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
         .data_directory(settings_profile)
         .title("Hangboard Settings")
