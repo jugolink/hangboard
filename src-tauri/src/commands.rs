@@ -538,3 +538,95 @@ fn reveal_in_explorer(path: &str) -> CmdResult<()> {
     let _ = path;
     Err("reveal is Windows-only".to_string())
 }
+
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ShortcutCheckResult {
+    pub valid: bool,
+    pub conflict: bool,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub fn check_shortcut(app: AppHandle, accelerator: String) -> ShortcutCheckResult {
+    let Ok(sc) = accelerator.parse::<Shortcut>() else {
+        return ShortcutCheckResult {
+            valid: false,
+            conflict: false,
+            error: Some("Invalid accelerator syntax / 快捷键格式无效".into()),
+        };
+    };
+
+    let gs = app.global_shortcut();
+    match gs.on_shortcut(sc, |_app, _sc, _ev| {}) {
+        Ok(_) => {
+            let _ = gs.unregister(sc);
+            if let Ok(root) = crate::data_root(&app) {
+                let s = crate::settings::Settings::load(&root);
+                let _ = crate::register_shortcuts(&app, &s);
+            }
+            ShortcutCheckResult {
+                valid: true,
+                conflict: false,
+                error: None,
+            }
+        }
+        Err(e) => {
+            if let Ok(root) = crate::data_root(&app) {
+                let s = crate::settings::Settings::load(&root);
+                let _ = crate::register_shortcuts(&app, &s);
+            }
+            ShortcutCheckResult {
+                valid: false,
+                conflict: true,
+                error: Some(format!("Shortcut conflict / 快捷键冲突或已被占用: {e}")),
+            }
+        }
+    }
+}
+
+#[tauri::command]
+pub fn get_settings(app: AppHandle) -> Result<crate::settings::Settings, String> {
+    let root = crate::data_root(&app)?;
+    Ok(crate::settings::Settings::load(&root))
+}
+
+#[tauri::command]
+pub fn save_settings(app: AppHandle, new_settings: crate::settings::Settings) -> Result<(), String> {
+    let root = crate::data_root(&app)?;
+    new_settings.save(&root)?;
+    crate::apply_settings(&app)?;
+    let _ = crate::tray::rebuild_menu(&app);
+    let _ = app.emit("app:language", &new_settings.language);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_settings_window(app: AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("settings") {
+        let _ = win.show();
+        let _ = win.set_focus();
+        let _ = win.emit("settings:refresh", ());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_settings_window(app: AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("settings") {
+        let _ = win.hide();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_settings_file(app: AppHandle) -> Result<(), String> {
+    let root = crate::data_root(&app)?;
+    let settings = crate::settings::Settings::load(&root);
+    settings.save(&root)?;
+    let path = root.join(crate::settings::SETTINGS_FILE);
+    #[cfg(windows)]
+    let _ = std::process::Command::new("notepad").arg(&path).spawn();
+    Ok(())
+}

@@ -50,6 +50,9 @@ pub struct Inner {
     pub capture: Option<CaptureBuf>,
     /// Size multiplier from the Size menu (0.8 / 1.0 / 1.35).
     pub scale: f64,
+    /// When set, the line was auto-revealed for a new capture and should stay
+    /// visible until this timestamp, even if cursor is outside hot zone.
+    pub auto_dismiss_at: Option<std::time::Instant>,
     /// Which photo the preview lightbox is showing, in display order
     /// (0 = leftmost / oldest on the line). `None` while the preview is
     /// closed.

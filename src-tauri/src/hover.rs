@@ -141,11 +141,11 @@ pub fn spawn(app: AppHandle) {
             .load(Ordering::SeqCst);
         let hot = hover_on && in_zone(cursor.x, cursor.y, &mon);
         let state = app.state::<AppState>();
-        let (revealed, dragging, pinned) = state
+        let (revealed, dragging, pinned, auto_dismiss_at) = state
             .inner
             .lock()
-            .map(|g| (g.revealed, g.dragging, g.pinned))
-            .unwrap_or((false, false, false));
+            .map(|g| (g.revealed, g.dragging, g.pinned, g.auto_dismiss_at))
+            .unwrap_or((false, false, false, None));
 
         let Ok(origin) = window.outer_position() else {
             continue;
@@ -180,6 +180,11 @@ pub fn spawn(app: AppHandle) {
             // Inside the zone, on a photo, or mid-drag: cancel any pending
             // retract and start counting toward a reveal.
             *hover.outside_since.lock().unwrap() = None;
+            if auto_dismiss_at.is_some() {
+                if let Ok(mut inner) = state.inner.lock() {
+                    inner.auto_dismiss_at = None;
+                }
+            }
 
             if !revealed {
                 let mut inside = hover.inside_since.lock().unwrap();
@@ -202,6 +207,16 @@ pub fn spawn(app: AppHandle) {
 
         if !revealed || pinned {
             continue;
+        }
+
+        // If an auto-dismiss session is active (e.g. from recent capture),
+        // keep the line visible until the session finishes!
+        if let Some(until) = auto_dismiss_at {
+            if std::time::Instant::now() < until {
+                continue;
+            } else if let Ok(mut inner) = state.inner.lock() {
+                inner.auto_dismiss_at = None;
+            }
         }
 
         let mut outside = hover.outside_since.lock().unwrap();

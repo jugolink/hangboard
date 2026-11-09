@@ -142,9 +142,9 @@ impl I18n {
     }
     fn open_settings(&self) -> &'static str {
         if self.is_zh {
-            "打开配置文件"
+            "偏好设置…"
         } else {
-            "Open settings file"
+            "Preferences…"
         }
     }
     fn language_menu(&self) -> &'static str {
@@ -527,7 +527,7 @@ fn handle_menu(app: &AppHandle, id: &str) -> Result<(), String> {
         "open_screenshots_folder" => open_shots_folder(app)?,
         "hang_clipboard" => toggle_hang_clipboard(app)?,
         "open_at_login" => toggle_autostart(app)?,
-        "open_settings" => open_settings_file(app)?,
+        "open_settings" => crate::commands::open_settings_window(app)?,
         "reveal_on_hover" => toggle_reveal_on_hover(app)?,
         "reveal_on_new" => toggle_reveal_on_new(app)?,
         "sounds" => toggle_sounds(app)?,

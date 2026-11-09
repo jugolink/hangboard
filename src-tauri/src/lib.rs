@@ -148,6 +148,10 @@ pub fn reveal_on_new(app: &AppHandle) {
         return;
     };
     if settings::Settings::load(&root).reveal_on_new {
+        if let Ok(mut inner) = app.state::<AppState>().inner.lock() {
+            inner.auto_dismiss_at =
+                Some(std::time::Instant::now() + std::time::Duration::from_millis(3000));
+        }
         reveal(app, true);
     }
 }
@@ -240,7 +244,7 @@ fn beep() {}
 ///
 /// A hand-edited accelerator that fails to parse (or is already taken by
 /// another app) is skipped rather than fatal: the line must still start.
-fn register_shortcuts(app: &AppHandle, settings: &settings::Settings) -> Result<(), String> {
+pub fn register_shortcuts(app: &AppHandle, settings: &settings::Settings) -> Result<(), String> {
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
 
@@ -396,6 +400,12 @@ pub fn run() {
             commands::context_discard,
             commands::context_discard_left,
             commands::context_discard_right,
+            commands::check_shortcut,
+            commands::get_settings,
+            commands::save_settings,
+            commands::open_settings_window,
+            commands::close_settings_window,
+            commands::open_settings_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hangboard");

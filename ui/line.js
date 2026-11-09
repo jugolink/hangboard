@@ -21,6 +21,7 @@ let geo = null;
 let revealed = false;
 let hoveredId = null;
 let pendingArrivalIds = new Set();
+let lastRevealedAt = 0;
 let currentLang = "zh-CN";
 
 function updateLanguage(lang) {
@@ -84,8 +85,15 @@ function render() {
   prevIds = currentIds;
 
   const isStageHidden = stage.classList.contains("hidden");
-  if (isStageHidden && !firstRender) {
+  const isTransitioningIn = Date.now() - lastRevealedAt < 380;
+  const shouldDelayArrival = isStageHidden || isTransitioningIn;
+
+  if (shouldDelayArrival && !firstRender) {
     newIds.forEach((id) => pendingArrivalIds.add(id));
+    if (isTransitioningIn) {
+      const remaining = Math.max(50, 240 - (Date.now() - lastRevealedAt));
+      schedulePendingArrivals(remaining);
+    }
   }
 
   cardsEl.innerHTML = "";
@@ -104,7 +112,7 @@ function render() {
 
     const card = document.createElement("div");
     card.className = "card" + (item.kept ? " kept" : "");
-    if (isNew && !firstRender && !isStageHidden) {
+    if (isNew && !firstRender && !shouldDelayArrival) {
       card.classList.add("arriving");
     }
     card.dataset.id = item.id;
@@ -269,27 +277,32 @@ function drawRope() {
   `;
 }
 
+function schedulePendingArrivals(delayMs) {
+  if (pendingArrivalIds.size === 0) return;
+  const toAnimate = [...pendingArrivalIds];
+  pendingArrivalIds.clear();
+  setTimeout(() => {
+    toAnimate.forEach((id) => {
+      const card = cardsEl.querySelector(`.card[data-id="${id}"]`);
+      if (card) {
+        card.classList.remove("arriving");
+        void card.offsetWidth;
+        card.classList.add("arriving");
+      }
+    });
+  }, delayMs);
+}
+
 function setRevealed(on) {
   revealed = on;
   stage.classList.toggle("hidden", !on);
   hint.classList.toggle("visible", on && items.length === 0);
 
-  if (on && pendingArrivalIds.size > 0) {
-    // Stage transition is 420ms. Trigger the arrival drop around 220ms,
-    // right as the rope swoops into view, so the photo drops from the top and
-    // swings onto the settling line!
-    const toAnimate = [...pendingArrivalIds];
+  if (on) {
+    lastRevealedAt = Date.now();
+    schedulePendingArrivals(240);
+  } else {
     pendingArrivalIds.clear();
-    setTimeout(() => {
-      toAnimate.forEach((id) => {
-        const card = cardsEl.querySelector(`.card[data-id="${id}"]`);
-        if (card) {
-          card.classList.remove("arriving");
-          void card.offsetWidth;
-          card.classList.add("arriving");
-        }
-      });
-    }, 220);
   }
 }
 

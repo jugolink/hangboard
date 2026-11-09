@@ -256,6 +256,21 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .visible(false)
         .build()?;
 
+    let settings_profile = root.join("webviews").join("settings");
+    WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
+        .data_directory(settings_profile)
+        .title("Hangboard Settings")
+        .inner_size(520.0, 620.0)
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .resizable(false)
+        .skip_taskbar(false)
+        .always_on_top(true)
+        .focused(false)
+        .visible(false)
+        .build()?;
+
     Ok(())
 }
 
