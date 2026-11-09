@@ -5,7 +5,7 @@
 //! the logic testable without a window.
 
 use crate::state::{geometry, AppState, Geometry, Item};
-use crate::window::{reveal, Overlay, Preview};
+use crate::window::{reveal, Context, Overlay, Preview};
 use crate::{capture, line, resize as resize_line};
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -304,8 +304,225 @@ pub fn close_preview(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()
     Ok(())
 }
 
+// ---- per-photo context menu ------------------------------------------------
+//
+// Right-clicking a photo opens a small popup (an HTML window) with actions on
+// that photo. The item id is parked in `state.context_id` so every command can
+// find its subject without threading it through the webview.
+
+/// Open the context menu for the photo with this id, positioned near the
+/// pointer.
+#[tauri::command]
+pub fn open_context(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        if !inner.items.iter().any(|i| i.id == id) {
+            return Err("no such item".to_string());
+        }
+    }
+    {
+        let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner.context_id = Some(id);
+    }
+    let window = app.state::<Context>().window(&app)?;
+    // Position near the pointer (a little below/right so it does not sit under
+    // the cursor), then show.
+    if let Ok(cursor) = app.cursor_position() {
+        let _ = window.set_position(tauri::LogicalPosition::new(cursor.x, cursor.y));
+    }
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_context(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    if let Ok(mut inner) = state.inner.lock() {
+        inner.context_id = None;
+    }
+    let window = app.state::<Context>().window(&app)?;
+    window.hide().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn context_item(state: &State<'_, AppState>) -> CmdResult<Item> {
+    let inner = state.inner.lock().map_err(|e| e.to_string())?;
+    let id = inner.context_id.as_ref().ok_or("no context item")?;
+    inner
+        .items
+        .iter()
+        .find(|i| &i.id == id)
+        .cloned()
+        .ok_or("no such item".to_string())
+}
+
+/// Copy the context item to the clipboard (same as clicking the photo).
+#[tauri::command]
+pub fn context_copy(state: State<'_, AppState>) -> CmdResult<()> {
+    let item = context_item(&state)?;
+    line::copy_to_clipboard(&item)
+}
+
+/// Open the context item in the default handler (default image viewer).
+#[tauri::command]
+pub fn context_open(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    let item = context_item(&state)?;
+    open_path(&item.path)?;
+    close_context(app, state)
+}
+
+/// Open the preview lightbox for the context item, then close this menu.
+#[tauri::command]
+pub fn context_preview(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    let id = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner.context_id.clone().ok_or("no context item")?
+    };
+    let window = app.state::<Context>().window(&app)?;
+    let _ = window.hide();
+    open_preview(app, state, id)
+}
+
+/// Reveal the item in Explorer (selects it).
+#[tauri::command]
+pub fn context_reveal(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    let item = context_item(&state)?;
+    reveal_in_explorer(&item.path)?;
+    close_context(app, state)
+}
+
+/// Copy the item to the export folder (default: desktop\Hangboard).
+#[tauri::command]
+pub fn context_export(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    let item = context_item(&state)?;
+    let dir = crate::export_dir(&app)?;
+    let name = std::path::Path::new(&item.path)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .ok_or("no file name")?;
+    let dest = dir.join(name);
+    std::fs::copy(&item.path, &dest).map_err(|e| e.to_string())?;
+    close_context(app, state)
+}
+
+/// Take down every photo to the left of the context item (in display order).
+#[tauri::command]
+pub fn context_discard_left(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    discard_side(&app, &state, Side::Left)
+}
+
+/// Take down every photo to the right of the context item (in display order).
+#[tauri::command]
+pub fn context_discard_right(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    discard_side(&app, &state, Side::Right)
+}
+
+/// Discard the context item itself.
+#[tauri::command]
+pub fn context_discard(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    let id = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner.context_id.clone().ok_or("no context item")?
+    };
+    discard_item(app.clone(), state.clone(), id)?;
+    close_context(app, state)
+}
+
+enum Side {
+    Left,
+    Right,
+}
+
+fn discard_side(app: &AppHandle, state: &State<'_, AppState>, side: Side) -> CmdResult<()> {
+    // `items` is newest-first; the line renders oldest-first (left to right).
+    // Find the subject's display index (0 = leftmost), then drop everything on
+    // the chosen side.
+    let (subject_id, display_pos) = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        let id = inner.context_id.clone().ok_or("no context item")?;
+        let pos = inner
+            .items
+            .iter()
+            .position(|i| i.id == id)
+            .ok_or("no such item")?;
+        let display = display_index(&inner.items, pos);
+        (id, display)
+    };
+
+    let ids: Vec<String> = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        // newest-first → display order is the reverse.
+        let mut display_order: Vec<(usize, String)> = inner
+            .items
+            .iter()
+            .enumerate()
+            .map(|(pos, i)| (display_index(&inner.items, pos), i.id.clone()))
+            .collect();
+        display_order.sort_by_key(|(d, _)| *d);
+        display_order
+            .into_iter()
+            .filter_map(|(d, id)| match side {
+                Side::Left => (d < display_pos).then_some(id),
+                Side::Right => (d > display_pos).then_some(id),
+            })
+            .collect()
+    };
+
+    let dir = crate::shots_dir(app)?;
+    {
+        let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+        for id in &ids {
+            if let Some(pos) = inner.items.iter().position(|i| &i.id == id) {
+                let item = inner.items.remove(pos);
+                line::delete_file(&dir, &item);
+            }
+        }
+    }
+    crate::persist(app);
+    crate::emit_items(app);
+    // The subject still exists; re-target it so a second click keeps working.
+    {
+        let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner.context_id = Some(subject_id);
+    }
+    if let Ok(window) = app.state::<Context>().window(app) {
+        let _ = window.hide();
+    }
+    Ok(())
+}
+
 /// Physical pixels per logical pixel on the primary monitor.
 fn factor_of(app: &AppHandle) -> Option<f64> {
     let mon = app.primary_monitor().ok()??;
     Some(mon.scale_factor())
+}
+
+#[cfg(windows)]
+fn open_path(path: &str) -> CmdResult<()> {
+    std::process::Command::new("cmd")
+        .args(["/C", "start", "", path])
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn open_path(path: &str) -> CmdResult<()> {
+    let _ = path;
+    Err("open is Windows-only".to_string())
+}
+
+#[cfg(windows)]
+fn reveal_in_explorer(path: &str) -> CmdResult<()> {
+    std::process::Command::new("explorer")
+        .args(["/select,", path])
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn reveal_in_explorer(path: &str) -> CmdResult<()> {
+    let _ = path;
+    Err("reveal is Windows-only".to_string())
 }

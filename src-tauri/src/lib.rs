@@ -64,6 +64,68 @@ pub fn shots_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(dir)
 }
 
+/// Where "Save to desktop" drops a copy. `settings.export_dir` wins; otherwise
+/// a `Hangboard` folder on the real desktop.
+pub fn export_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let root = data_root(app)?;
+    let settings = settings::Settings::load(&root);
+    let dir = match settings.export_dir {
+        Some(d) => std::path::PathBuf::from(d),
+        None => desktop_dir()
+            .unwrap_or_else(|| root.join("exports"))
+            .join("Hangboard"),
+    };
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+/// The real desktop folder. Reads the shell's redirected path first (so a
+/// OneDrive-redirected desktop still lands on the user's desktop), then falls
+/// back to `%USERPROFILE%\Desktop`.
+fn desktop_dir() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+        let key = RegKey::predef(HKEY_CURRENT_USER)
+            .open_subkey(r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders")
+            .ok()?;
+        let raw: String = key.get_value("Desktop").ok()?;
+        let expanded = expand_env(&raw);
+        let path = std::path::PathBuf::from(expanded);
+        if path.is_absolute() {
+            return Some(path);
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = ();
+    }
+    std::env::var_os("USERPROFILE").map(|p| std::path::PathBuf::from(p).join("Desktop"))
+}
+
+/// Expand `%VAR%` in a path read from the registry (the shell stores redirected
+/// folders with variables in them).
+#[cfg(windows)]
+fn expand_env(raw: &str) -> String {
+    // Simple %NAME% expansion for the common `%USERPROFILE%` and `%OneDrive%`.
+    let mut out = raw.to_string();
+    for name in ["USERPROFILE", "OneDrive", "OneDriveConsumer", "PUBLIC"] {
+        if let Ok(v) = std::env::var(name) {
+            let needle = format!("%{name}%");
+            if out.contains(&needle) {
+                out = out.replace(&needle, &v);
+            }
+        }
+    }
+    out
+}
+
+#[cfg(not(windows))]
+fn expand_env(raw: &str) -> String {
+    raw.to_string()
+}
+
 pub fn now_millis() -> u128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -242,6 +304,7 @@ pub fn run() {
         .manage(hover::HoverState::new())
         .manage(window::Overlay::new())
         .manage(window::Preview::new())
+        .manage(window::Context::new())
         .setup(|app| {
             let handle = app.handle().clone();
 
@@ -322,6 +385,16 @@ pub fn run() {
             commands::open_preview,
             commands::step_preview,
             commands::close_preview,
+            commands::open_context,
+            commands::close_context,
+            commands::context_copy,
+            commands::context_open,
+            commands::context_preview,
+            commands::context_reveal,
+            commands::context_export,
+            commands::context_discard,
+            commands::context_discard_left,
+            commands::context_discard_right,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hangboard");

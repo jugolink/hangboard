@@ -52,6 +52,8 @@ pub struct Inner {
     /// (0 = leftmost / oldest on the line). `None` while the preview is
     /// closed.
     pub preview_index: Option<usize>,
+    /// Which photo the context menu was opened for. `None` while closed.
+    pub context_id: Option<String>,
 }
 
 impl Inner {
