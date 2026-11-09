@@ -141,11 +141,11 @@ pub fn spawn(app: AppHandle) {
             .load(Ordering::SeqCst);
         let hot = hover_on && in_zone(cursor.x, cursor.y, &mon);
         let state = app.state::<AppState>();
-        let (revealed, dragging) = state
+        let (revealed, dragging, pinned) = state
             .inner
             .lock()
-            .map(|g| (g.revealed, g.dragging))
-            .unwrap_or((false, false));
+            .map(|g| (g.revealed, g.dragging, g.pinned))
+            .unwrap_or((false, false, false));
 
         let Ok(origin) = window.outer_position() else {
             continue;
@@ -200,7 +200,7 @@ pub fn spawn(app: AppHandle) {
 
         *hover.inside_since.lock().unwrap() = None;
 
-        if !revealed {
+        if !revealed || pinned {
             continue;
         }
 

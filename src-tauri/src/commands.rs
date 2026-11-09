@@ -213,8 +213,20 @@ pub fn cancel_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<(
 }
 
 #[tauri::command]
-pub fn hide_line(app: AppHandle) {
+pub fn hide_line(app: AppHandle, state: State<'_, AppState>) {
+    if let Ok(mut inner) = state.inner.lock() {
+        inner.pinned = false;
+    }
+    crate::tray::refresh_checks_current(&app);
     reveal(&app, false);
+}
+
+#[tauri::command]
+pub fn get_language(app: AppHandle) -> String {
+    let Ok(root) = crate::data_root(&app) else {
+        return "zh-CN".into();
+    };
+    crate::settings::Settings::load(&root).language
 }
 
 // ---- preview lightbox ------------------------------------------------------

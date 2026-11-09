@@ -1,28 +1,62 @@
 // The preview lightbox front end.
-//
-// The Rust side owns which photo is current (state.preview_index). This file
-// never trusts a stale event: on boot and after every step it pulls the
-// authoritative index, image and count straight from Rust, so the very first
-// frame is correct even if the window is shown before any event could arrive.
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+const container = document.getElementById("container");
 const photo = document.getElementById("photo");
+const info = document.getElementById("info");
 const counter = document.getElementById("counter");
+const btnClose = document.getElementById("btn-close");
+const btnPrev = document.getElementById("btn-prev");
+const btnNext = document.getElementById("btn-next");
+const btnCopy = document.getElementById("btn-copy");
+const btnOpen = document.getElementById("btn-open");
+const copyLabel = document.getElementById("copy-label");
+const openLabel = document.getElementById("open-label");
+const hintKey = document.getElementById("hint-key");
+
+let currentLang = "zh-CN";
+let currentItemId = null;
+
+function updateLanguage(lang) {
+  currentLang = lang;
+  const isZh = lang === "zh-CN";
+  copyLabel.textContent = isZh ? "复制" : "Copy";
+  openLabel.textContent = isZh ? "打开" : "Open";
+  hintKey.textContent = isZh ? "Esc 退出 · ← → 切换" : "Esc to exit · ← → to step";
+}
 
 async function refresh() {
   const index = await invoke("preview_index");
-  // null means the preview is closed; leave the last frame, Rust hid us.
   if (index === null || index === undefined) return;
 
   const url = await invoke("preview_image");
   const items = await invoke("list_items");
 
-  if (url) photo.src = url;
   const count = Array.isArray(items) ? items.length : 0;
+  // items are ordered newest-first in Rust, but preview uses display order
+  // (left to right = oldest to newest)
+  const ordered = Array.isArray(items) ? [...items].reverse() : [];
+  const item = ordered[index];
+  currentItemId = item ? item.id : null;
+
+  if (url) {
+    photo.style.opacity = "0.7";
+    photo.src = url;
+  }
+
   counter.textContent = count > 0 ? `${index + 1} / ${count}` : "";
 }
+
+photo.addEventListener("load", () => {
+  photo.style.opacity = "1";
+  if (photo.naturalWidth && photo.naturalHeight) {
+    info.textContent = `${photo.naturalWidth} × ${photo.naturalHeight}`;
+  } else {
+    info.textContent = "";
+  }
+});
 
 async function step(delta) {
   await invoke("step_preview", { delta });
@@ -33,9 +67,45 @@ async function close() {
   await invoke("close_preview");
 }
 
-async function boot() {
-  await listen("preview:show", () => void refresh());
+btnClose.addEventListener("click", close);
+btnPrev.addEventListener("click", () => void step(-1));
+btnNext.addEventListener("click", () => void step(1));
 
+btnCopy.addEventListener("click", async () => {
+  if (!currentItemId) return;
+  await invoke("copy_item", { id: currentItemId });
+  btnCopy.classList.add("copied");
+  const oldText = copyLabel.textContent;
+  copyLabel.textContent = currentLang === "zh-CN" ? "已复制!" : "Copied!";
+  setTimeout(() => {
+    btnCopy.classList.remove("copied");
+    copyLabel.textContent = oldText;
+  }, 900);
+});
+
+btnOpen.addEventListener("click", async () => {
+  if (!currentItemId) return;
+  await invoke("context_open", { id: currentItemId });
+});
+
+// Clicking the photo area (outside the photo itself) closes preview
+document.getElementById("photo-area").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget || e.target.id === "photo-box") {
+    void close();
+  }
+});
+
+async function boot() {
+  try {
+    const lang = await invoke("get_language");
+    if (lang) updateLanguage(lang);
+  } catch (_) {}
+
+  await listen("app:language", (event) => {
+    updateLanguage(event.payload);
+  });
+
+  await listen("preview:show", () => void refresh());
   await refresh();
 
   window.addEventListener("keydown", async (event) => {
@@ -52,8 +122,6 @@ async function boot() {
     }
   });
 
-  // A keyup Space would otherwise scroll the page; there is nothing to scroll
-  // but suppressing it keeps the event from leaking anywhere else.
   window.addEventListener("keyup", (event) => {
     if (event.key === " ") event.preventDefault();
   });

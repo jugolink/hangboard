@@ -59,11 +59,147 @@ fn too_big(width: usize, height: usize, byte_len: usize) -> bool {
     width.saturating_mul(height) > MAX_PIXELS || byte_len > MAX_BYTES
 }
 
+#[cfg(windows)]
+fn read_windows_clipboard() -> Option<image::RgbaImage> {
+    use std::ffi::c_void;
+    use std::ptr;
+
+    type HWND = *mut c_void;
+    type HANDLE = *mut c_void;
+    type HGLOBAL = *mut c_void;
+    type UINT = u32;
+    type BOOL = i32;
+
+    const CF_HDROP: UINT = 15;
+
+    #[link(name = "user32")]
+    extern "system" {
+        fn OpenClipboard(hWndNewOwner: HWND) -> BOOL;
+        fn CloseClipboard() -> BOOL;
+        fn IsClipboardFormatAvailable(format: UINT) -> BOOL;
+        fn GetClipboardData(uFormat: UINT) -> HANDLE;
+        fn RegisterClipboardFormatW(lpszFormat: *const u16) -> UINT;
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GlobalLock(hMem: HGLOBAL) -> *mut c_void;
+        fn GlobalUnlock(hMem: HGLOBAL) -> BOOL;
+        fn GlobalSize(hMem: HGLOBAL) -> usize;
+    }
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn DragQueryFileW(hDrop: HANDLE, iFile: UINT, lpszFile: *mut u16, cch: UINT) -> UINT;
+    }
+
+    fn to_wide(s: &str) -> Vec<u16> {
+        s.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+
+    let png_wide = to_wide("PNG");
+    let image_png_wide = to_wide("image/png");
+
+    unsafe {
+        let fmt_png = RegisterClipboardFormatW(png_wide.as_ptr());
+        let fmt_image_png = RegisterClipboardFormatW(image_png_wide.as_ptr());
+
+        if OpenClipboard(ptr::null_mut()) == 0 {
+            return None;
+        }
+
+        struct ClipGuard;
+        impl Drop for ClipGuard {
+            fn drop(&mut self) {
+                unsafe {
+                    CloseClipboard();
+                }
+            }
+        }
+        let _guard = ClipGuard;
+
+        // 1. Try registered PNG format (used by PixPin, Snipaste, browsers, Electron apps)
+        let target_fmt = if fmt_png != 0 && IsClipboardFormatAvailable(fmt_png) != 0 {
+            Some(fmt_png)
+        } else if fmt_image_png != 0 && IsClipboardFormatAvailable(fmt_image_png) != 0 {
+            Some(fmt_image_png)
+        } else {
+            None
+        };
+
+        if let Some(fmt) = target_fmt {
+            let handle = GetClipboardData(fmt);
+            if !handle.is_null() {
+                let size = GlobalSize(handle);
+                if size > 0 && size <= MAX_BYTES {
+                    let ptr = GlobalLock(handle);
+                    if !ptr.is_null() {
+                        let slice = std::slice::from_raw_parts(ptr as *const u8, size);
+                        let bytes = slice.to_vec();
+                        GlobalUnlock(handle);
+                        if let Ok(dyn_img) = image::load_from_memory(&bytes) {
+                            let rgba = dyn_img.to_rgba8();
+                            let w = rgba.width() as usize;
+                            let h = rgba.height() as usize;
+                            if !too_big(w, h, w.saturating_mul(h).saturating_mul(4)) {
+                                return Some(rgba);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Try CF_HDROP (copied image file / PixPin "Copy as file" / explorer copy)
+        if IsClipboardFormatAvailable(CF_HDROP) != 0 {
+            let handle = GetClipboardData(CF_HDROP);
+            if !handle.is_null() {
+                let count = DragQueryFileW(handle, 0xFFFF_FFFF, ptr::null_mut(), 0);
+                if count > 0 {
+                    let mut buf = [0u16; 1024];
+                    let len = DragQueryFileW(handle, 0, buf.as_mut_ptr(), buf.len() as u32);
+                    if len > 0 {
+                        let path_str = String::from_utf16_lossy(&buf[..len as usize]);
+                        let path = std::path::Path::new(&path_str);
+                        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                            let ext_lower = ext.to_ascii_lowercase();
+                            if matches!(
+                                ext_lower.as_str(),
+                                "png" | "jpg" | "jpeg" | "webp" | "bmp" | "gif"
+                            ) {
+                                if let Ok(data) = std::fs::read(path) {
+                                    if data.len() <= MAX_BYTES {
+                                        if let Ok(dyn_img) = image::load_from_memory(&data) {
+                                            let rgba = dyn_img.to_rgba8();
+                                            let w = rgba.width() as usize;
+                                            let h = rgba.height() as usize;
+                                            if !too_big(w, h, w.saturating_mul(h).saturating_mul(4))
+                                            {
+                                                return Some(rgba);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Read the clipboard as an image, rejecting anything absurdly large.
-///
-/// `get_image` only succeeds when the clipboard holds a bitmap, so a text or
-/// file copy is naturally ignored — no format sniffing needed.
 fn read_image() -> Option<image::RgbaImage> {
+    #[cfg(windows)]
+    {
+        if let Some(img) = read_windows_clipboard() {
+            return Some(img);
+        }
+    }
+
     let mut clipboard = arboard::Clipboard::new().ok()?;
     let data = clipboard.get_image().ok()?;
 
@@ -105,7 +241,18 @@ pub fn spawn(app: AppHandle) {
                 continue;
             }
 
-            let Some(img) = read_image() else {
+            // Try up to 6 times with 40ms sleep in case the writing app
+            // (e.g. PixPin, Snipaste) still holds the clipboard lock.
+            let mut img = None;
+            for _ in 0..6 {
+                if let Some(i) = read_image() {
+                    img = Some(i);
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(40));
+            }
+
+            let Some(img) = img else {
                 continue;
             };
 

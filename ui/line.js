@@ -20,6 +20,20 @@ let items = [];
 let geo = null;
 let revealed = false;
 let hoveredId = null;
+let pendingArrivalIds = new Set();
+let currentLang = "zh-CN";
+
+function updateLanguage(lang) {
+  currentLang = lang;
+  const isZh = lang === "zh-CN";
+  hint.textContent = isZh
+    ? "截图或复制图片后将悬挂在此处"
+    : "Take a screenshot and it will hang here";
+  document.documentElement.style.setProperty(
+    "--copied-text",
+    JSON.stringify(isZh ? "✓ 已复制" : "✓ Copied")
+  );
+}
 
 // Track which ids were already on the line, so a re-render can tell a
 // genuinely new photo apart from the rest and give it an arrival animation.
@@ -69,6 +83,11 @@ function render() {
   const newIds = [...currentIds].filter((id) => !prevIds.has(id));
   prevIds = currentIds;
 
+  const isStageHidden = stage.classList.contains("hidden");
+  if (isStageHidden && !firstRender) {
+    newIds.forEach((id) => pendingArrivalIds.add(id));
+  }
+
   cardsEl.innerHTML = "";
   hint.classList.toggle("visible", count === 0 && revealed);
 
@@ -85,7 +104,9 @@ function render() {
 
     const card = document.createElement("div");
     card.className = "card" + (item.kept ? " kept" : "");
-    if (isNew && !firstRender) card.classList.add("arriving");
+    if (isNew && !firstRender && !isStageHidden) {
+      card.classList.add("arriving");
+    }
     card.dataset.id = item.id;
 
     const w = geo.card_width;
@@ -252,9 +273,32 @@ function setRevealed(on) {
   revealed = on;
   stage.classList.toggle("hidden", !on);
   hint.classList.toggle("visible", on && items.length === 0);
+
+  if (on && pendingArrivalIds.size > 0) {
+    // Stage transition is 420ms. Trigger the arrival drop around 220ms,
+    // right as the rope swoops into view, so the photo drops from the top and
+    // swings onto the settling line!
+    const toAnimate = [...pendingArrivalIds];
+    pendingArrivalIds.clear();
+    setTimeout(() => {
+      toAnimate.forEach((id) => {
+        const card = cardsEl.querySelector(`.card[data-id="${id}"]`);
+        if (card) {
+          card.classList.remove("arriving");
+          void card.offsetWidth;
+          card.classList.add("arriving");
+        }
+      });
+    }, 220);
+  }
 }
 
 async function boot() {
+  try {
+    const lang = await invoke("get_language");
+    if (lang) updateLanguage(lang);
+  } catch (_) {}
+
   geo = await invoke("get_geometry", { scale: 1 });
   applyGeometry(geo);
 
@@ -267,6 +311,10 @@ async function boot() {
   });
 
   await listen("line:revealed", (event) => setRevealed(event.payload));
+
+  await listen("app:language", (event) => {
+    updateLanguage(event.payload);
+  });
 
   await listen("line:geometry", async () => {
     geo = await invoke("get_geometry", { scale: 1 });

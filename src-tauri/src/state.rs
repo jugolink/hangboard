@@ -42,6 +42,8 @@ pub struct Inner {
     /// Window-relative rectangles of the photos, in logical pixels.
     pub hit_rects: Vec<(f64, f64, f64, f64)>,
     pub revealed: bool,
+    /// When pinned is true, the line stays visible and does not retract on mouse leave.
+    pub pinned: bool,
     /// Set while a photo is being dragged, so the hover loop stops fighting
     /// the pointer for the window's mouse state.
     pub dragging: bool,

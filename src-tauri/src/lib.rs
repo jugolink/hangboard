@@ -380,6 +380,7 @@ pub fn run() {
             commands::finish_capture,
             commands::cancel_capture,
             commands::hide_line,
+            commands::get_language,
             commands::preview_index,
             commands::preview_image,
             commands::open_preview,

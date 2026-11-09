@@ -323,7 +323,7 @@ body {
 /* A short "Copied" glass capsule: text and background in one element so the
    label and its pill can never drift apart into a stray white fragment. */
 .card.copied::after {
-  content: "✓ Copied";
+  content: var(--copied-text, "✓ 已复制");
   position: absolute;
   left: 50%;
   bottom: -30px;
