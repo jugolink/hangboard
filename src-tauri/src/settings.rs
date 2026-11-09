@@ -27,6 +27,17 @@ pub struct Settings {
     pub hang_clipboard: bool,
     /// Custom screenshot directory. `None` means "beside the app data".
     pub data_dir: Option<String>,
+    /// "Keep on line" cap. `None` means "as many as fit"; `Some(n)` keeps the
+    /// newest `n` and drops the oldest (never a pinned one) beyond that.
+    pub keep_on_line: Option<u32>,
+    /// Reveal the line the moment a new photo lands on it.
+    pub reveal_on_new: bool,
+    /// Reveal the line when the pointer sits at the top edge.
+    pub reveal_on_hover: bool,
+    /// Reveal the line even when a full-screen app is in front.
+    pub reveal_over_fullscreen: bool,
+    /// Play a sound when a photo hangs or is taken down.
+    pub sounds: bool,
 }
 
 impl Default for Settings {
@@ -38,6 +49,11 @@ impl Default for Settings {
             open_at_login: false,
             hang_clipboard: true,
             data_dir: None,
+            keep_on_line: None,
+            reveal_on_new: true,
+            reveal_on_hover: true,
+            reveal_over_fullscreen: false,
+            sounds: false,
         }
     }
 }
@@ -83,6 +99,11 @@ mod tests {
         assert!(!s.open_at_login);
         assert!(s.hang_clipboard);
         assert!(s.data_dir.is_none());
+        assert!(s.keep_on_line.is_none());
+        assert!(s.reveal_on_new);
+        assert!(s.reveal_on_hover);
+        assert!(!s.reveal_over_fullscreen);
+        assert!(!s.sounds);
     }
 
     #[test]
@@ -117,6 +138,11 @@ mod tests {
         assert_eq!(s.region, DEFAULT_REGION);
         assert!(!s.open_at_login);
         assert!(s.hang_clipboard);
+        assert!(s.keep_on_line.is_none());
+        assert!(s.reveal_on_new);
+        assert!(s.reveal_on_hover);
+        assert!(!s.reveal_over_fullscreen);
+        assert!(!s.sounds);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

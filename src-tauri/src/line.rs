@@ -187,6 +187,28 @@ pub fn delete_file(dir: &Path, item: &Item) {
     }
 }
 
+/// Which items to auto-drop when the line is capped.
+///
+/// `items` is newest-first. Pinned photos never drop on their own; among the
+/// rest, only those beyond the newest `cap` are removed. Returns the ids to
+/// drop, in newest-first order (callers that need a stable deletion order can
+/// reverse it; the set is what matters).
+pub fn drop_overflow(items: &[Item], cap: u32) -> Vec<String> {
+    let mut unpinned_kept = 0u32;
+    let mut drop = Vec::new();
+    // Walk newest-first; the newest `cap` unpinned photos survive, the rest go.
+    for item in items {
+        if item.kept {
+            continue;
+        }
+        unpinned_kept += 1;
+        if unpinned_kept > cap {
+            drop.push(item.id.clone());
+        }
+    }
+    drop
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,5 +310,28 @@ mod tests {
         delete_file(&shots, &item);
         assert!(outside.exists());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn overflow_drops_only_the_oldest_unpinned() {
+        let mk = |id: &str, kept: bool| Item {
+            id: id.into(),
+            path: String::new(),
+            thumb: String::new(),
+            tilt: 0.0,
+            aspect: 1.0,
+            kept,
+            added_at: 0,
+        };
+        // newest-first: a (newest) .. e (oldest); b and d are pinned.
+        let items = vec![
+            mk("a", false),
+            mk("b", true),
+            mk("c", false),
+            mk("d", true),
+            mk("e", false),
+        ];
+        // cap 1: keep the newest unpinned (a); drop c then e (newest-first).
+        assert_eq!(drop_overflow(&items, 1), vec!["c", "e"]);
     }
 }

@@ -76,6 +76,20 @@ pub fn resize_line(app: &AppHandle) {
     window::resize(app);
 }
 
+/// Reveal the line when a new photo lands, unless the user turned that off.
+///
+/// The "reveal on new photo" preference and the "reveal on hover" one are
+/// separate: this one is only consulted at the moment something new hangs, so
+/// a captured screenshot or pasted image pops the line only when wanted.
+pub fn reveal_on_new(app: &AppHandle) {
+    let Ok(root) = data_root(app) else {
+        return;
+    };
+    if settings::Settings::load(&root).reveal_on_new {
+        reveal(app, true);
+    }
+}
+
 /// Hang an already-finished image (used by the overlay and by future
 /// screenshot folders).
 pub fn hang(app: &AppHandle, img: image::RgbaImage) -> Result<Item, String> {
@@ -86,10 +100,79 @@ pub fn hang(app: &AppHandle, img: image::RgbaImage) -> Result<Item, String> {
         inner.items.push(item.clone());
         inner.items.sort_by_key(|a| std::cmp::Reverse(a.added_at));
     }
+    enforce_keep_on_line(app);
+    if let Ok(root) = data_root(app) {
+        if settings::Settings::load(&root).sounds {
+            beep();
+        }
+    }
     persist(app);
     emit_items(app);
     Ok(item)
 }
+
+/// Drop the oldest un-pinned photos once the line exceeds "Keep on line".
+pub fn enforce_keep_on_line(app: &AppHandle) {
+    let Ok(root) = data_root(app) else {
+        return;
+    };
+    let Some(cap) = settings::Settings::load(&root).keep_on_line else {
+        return;
+    };
+    let drop_ids = {
+        let state = app.state::<AppState>();
+        let Ok(inner) = state.inner.lock() else {
+            return;
+        };
+        line::drop_overflow(&inner.items, cap)
+    };
+    if drop_ids.is_empty() {
+        return;
+    }
+    let Ok(dir) = shots_dir(app) else {
+        return;
+    };
+    if let Ok(mut inner) = app.state::<AppState>().inner.lock() {
+        for id in &drop_ids {
+            if let Some(pos) = inner.items.iter().position(|i| &i.id == id) {
+                let item = inner.items.remove(pos);
+                line::delete_file(&dir, &item);
+            }
+        }
+    }
+    persist(app);
+    emit_items(app);
+}
+
+/// Take every photo down (delete the files) in one gesture.
+pub fn take_everything_down(app: &AppHandle) -> Result<(), String> {
+    let dir = shots_dir(app)?;
+    if let Ok(mut inner) = app.state::<AppState>().inner.lock() {
+        for item in inner.items.drain(..) {
+            line::delete_file(&dir, &item);
+        }
+    }
+    persist(app);
+    emit_items(app);
+    Ok(())
+}
+
+/// A short, system-chosen chime. Only when `settings.sounds` is on.
+#[cfg(windows)]
+fn beep() {
+    #[link(name = "user32")]
+    extern "system" {
+        #[link_name = "MessageBeep"]
+        fn message_beep(u_type: u32) -> i32;
+    }
+    // MB_ICONASTERISK: a light, non-alarming chime.
+    unsafe {
+        message_beep(0x0000_0040);
+    }
+}
+
+#[cfg(not(windows))]
+fn beep() {}
 
 /// Register the region/full-screen hotkeys from `settings`.
 ///
@@ -118,7 +201,7 @@ fn register_shortcuts(app: &AppHandle, settings: &settings::Settings) -> Result<
                     if let Ok(buf) = capture::freeze_primary() {
                         if let Some(img) = capture::whole(&buf) {
                             let _ = hang(&h, img);
-                            reveal(&h, true);
+                            reveal_on_new(&h);
                         }
                     }
                 });
@@ -143,6 +226,10 @@ pub fn apply_settings(app: &AppHandle) -> Result<(), String> {
 
     register_shortcuts(app, &settings)?;
     let _ = autostart::set_enabled(settings.open_at_login);
+    app.state::<hover::HoverState>().reveal_on_hover.store(
+        settings.reveal_on_hover,
+        std::sync::atomic::Ordering::SeqCst,
+    );
     tray::refresh_checks(app, &settings);
     Ok(())
 }
@@ -182,6 +269,13 @@ pub fn run() {
             window::place(&handle).ok();
             hover::spawn(handle.clone());
             clipboard::spawn(handle.clone());
+
+            // Push the reveal-on-hover preference into the hover loop's cache
+            // so it takes effect immediately rather than on the next reload.
+            handle.state::<hover::HoverState>().reveal_on_hover.store(
+                settings.reveal_on_hover,
+                std::sync::atomic::Ordering::SeqCst,
+            );
 
             // The hotkeys are configured, not hard-coded: they work while
             // another app has focus, which is the only time they are useful.

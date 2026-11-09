@@ -197,7 +197,7 @@ pub fn finish_capture(
 
     crate::persist(&app);
     crate::emit_items(&app);
-    reveal(&app, true);
+    crate::reveal_on_new(&app);
     Ok(())
 }
 

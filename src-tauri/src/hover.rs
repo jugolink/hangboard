@@ -28,6 +28,10 @@ pub struct HoverState {
     /// (the strip eats nothing). Cached so we only call the window manager
     /// when the answer actually flips, not on every 30 Hz tick.
     pass_through: AtomicBool,
+    /// Whether resting the pointer at the top edge should drop the line. A
+    /// cached copy of `settings.reveal_on_hover`, so the 30 Hz loop never
+    /// touches disk.
+    pub reveal_on_hover: AtomicBool,
 }
 
 impl HoverState {
@@ -37,6 +41,7 @@ impl HoverState {
             outside_since: Mutex::new(None),
             running: AtomicBool::new(false),
             pass_through: AtomicBool::new(false),
+            reveal_on_hover: AtomicBool::new(true),
         }
     }
 }
@@ -130,7 +135,11 @@ pub fn spawn(app: AppHandle) {
         };
 
         let scale = mon.scale_factor();
-        let hot = in_zone(cursor.x, cursor.y, &mon);
+        let hover_on = app
+            .state::<HoverState>()
+            .reveal_on_hover
+            .load(Ordering::SeqCst);
+        let hot = hover_on && in_zone(cursor.x, cursor.y, &mon);
         let state = app.state::<AppState>();
         let (revealed, dragging) = state
             .inner
