@@ -27,7 +27,7 @@ pub struct HoverState {
     /// What the loop last asked the window for. `true` means click-through
     /// (the strip eats nothing). Cached so we only call the window manager
     /// when the answer actually flips, not on every 30 Hz tick.
-    pass_through: AtomicBool,
+    pub pass_through: AtomicBool,
     /// Whether resting the pointer at the top edge should drop the line. A
     /// cached copy of `settings.reveal_on_hover`, so the 30 Hz loop never
     /// touches disk.

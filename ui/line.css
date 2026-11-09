@@ -32,13 +32,18 @@ body {
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
   background: transparent;
   /* The window is click-through anyway; this stops accidental text
      selection from a dragging pointer. */
   user-select: none;
   -webkit-user-select: none;
   cursor: default;
+}
+
+body.is-dragging #stage,
+body.is-dragging #cards {
+  height: 100%;
 }
 
 /* The window itself never moves; this stage slides up inside it. */

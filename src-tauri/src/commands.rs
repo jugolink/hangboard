@@ -50,20 +50,28 @@ pub fn set_dragging(app: AppHandle, state: State<'_, AppState>, dragging: bool) 
     if let Ok(mut inner) = state.inner.lock() {
         inner.dragging = dragging;
     }
+    if let Some(hover) = app.try_state::<crate::hover::HoverState>() {
+        if dragging {
+            hover.pass_through.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
     if let Some(window) = app.get_webview_window("line") {
-        if let Ok(cursor) = app.cursor_position() {
-            if let Ok(Some(mon)) = app.monitor_from_point(cursor.x, cursor.y) {
-                let size = mon.size();
-                let s = mon.scale_factor();
-                let scale = state.inner.lock().map(|g| g.scale).unwrap_or(1.0);
-                if dragging {
-                    // Expand line window to full screen height so card can be dragged out without clipping
-                    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(size.width, size.height)));
-                } else {
-                    // Restore to normal strip height
-                    let phys_h = (crate::window::window_height(scale) * s).round() as u32;
-                    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(size.width, phys_h)));
-                }
+        if dragging {
+            let _ = window.set_ignore_cursor_events(false);
+        }
+        let mon = app.cursor_position()
+            .ok()
+            .and_then(|c| app.monitor_from_point(c.x, c.y).ok().flatten())
+            .or_else(|| app.primary_monitor().ok().flatten());
+        if let Some(mon) = mon {
+            let size = mon.size();
+            let scale = state.inner.lock().map(|g| g.scale).unwrap_or(1.0);
+            if dragging {
+                // Expand line window to full screen height so card can be dragged out without clipping
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(size.width, size.height)));
+            } else {
+                // Restore to normal strip height and position
+                let _ = crate::window::place_on_monitor(&window, &mon, scale);
             }
         }
     }
@@ -669,7 +677,17 @@ pub fn pin_to_desktop(
     x: Option<f64>,
     y: Option<f64>,
 ) -> CmdResult<()> {
-    crate::window::open_pin_window(&app, &id, x, y)
+    let target = if let Ok(cursor) = app.cursor_position() {
+        if let Ok(Some(mon)) = app.monitor_from_point(cursor.x, cursor.y) {
+            let s = mon.scale_factor();
+            (Some(cursor.x / s), Some(cursor.y / s))
+        } else {
+            (x, y)
+        }
+    } else {
+        (x, y)
+    };
+    crate::window::open_pin_window(&app, &id, target.0, target.1)
 }
 
 #[tauri::command]

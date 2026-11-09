@@ -200,7 +200,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .decorations(false)
         .transparent(true)
         .shadow(false)
-        .resizable(false)
+        .resizable(true)
         .skip_taskbar(true)
         .always_on_top(true)
         .focused(false)
@@ -322,6 +322,16 @@ pub fn open_pin_window(
 ) -> Result<(), String> {
     let label = format!("pin-{}", id);
     if let Some(win) = app.get_webview_window(&label) {
+        if let (Some(x), Some(y)) = (target_x, target_y) {
+            if let Ok(size) = win.inner_size() {
+                let s = win.scale_factor().unwrap_or(1.0);
+                let w = size.width as f64 / s;
+                let h = size.height as f64 / s;
+                let pos_x = x - w / 2.0;
+                let pos_y = y - h / 2.0;
+                let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(pos_x, pos_y)));
+            }
+        }
         let _ = win.show();
         let _ = win.set_focus();
         return Ok(());
