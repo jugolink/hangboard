@@ -2,18 +2,7 @@
 
 const { invoke } = window.__TAURI__.core;
 
-const params = new URLSearchParams(window.location.search);
-let id = params.get("id");
-if (!id && window.__TAURI__?.window) {
-  try {
-    const currentWin = window.__TAURI__.window.getCurrentWebviewWindow();
-    if (currentWin && currentWin.label) {
-      id = currentWin.label.replace(/^pin-/, "");
-    }
-  } catch (e) {
-    console.error(e);
-  }
-}
+let id = null;
 
 const card = document.getElementById("pin-card");
 const img = document.getElementById("pin-img");
@@ -42,14 +31,15 @@ function showToast(msg) {
 }
 
 async function init() {
-  if (!id) return;
   try {
-    const dataUrl = await invoke("get_pin_image", { id });
-    img.src = dataUrl;
+    const info = await invoke("get_my_pin_info");
+    if (!info || !info.data_url) return;
+    id = info.id;
+    img.src = info.data_url;
 
     img.onload = () => {
-      naturalWidth = img.naturalWidth || 400;
-      naturalHeight = img.naturalHeight || 300;
+      naturalWidth = info.width || img.naturalWidth || 400;
+      naturalHeight = info.height || img.naturalHeight || 300;
       // Calculate initial zoom based on current window size vs natural size
       currentZoom = window.innerWidth / naturalWidth;
       updateScaleBadge();

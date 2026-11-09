@@ -195,11 +195,8 @@ function render() {
 
       if (activeDrag.isDragging) {
         const tilt = parseFloat(card.style.getPropertyValue("--tilt")) || 0;
-        // Clamp visual downward displacement so the card stays within the transparent window frame without clipping
-        const visualDy = Math.max(-20, Math.min(68, dy));
-        const visualDx = Math.max(-120, Math.min(120, dx));
-        card.style.transform = `translate(${visualDx}px, ${visualDy}px) rotate(${tilt + visualDx * 0.04}deg) scale(1.04)`;
-        if (dy > 45) {
+        card.style.transform = `translate(${dx}px, ${dy}px) rotate(${tilt + dx * 0.04}deg) scale(1.04)`;
+        if (dy > 60) {
           card.classList.add("ready-to-pin");
         } else {
           card.classList.remove("ready-to-pin");
@@ -223,7 +220,7 @@ function render() {
 
       if (isDragging) {
         lastDragEndedAt = Date.now();
-        if (dy > 45) {
+        if (dy > 60) {
           await invoke("pin_to_desktop", {
             id: item.id,
             x: screenX,

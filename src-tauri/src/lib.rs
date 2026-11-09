@@ -446,6 +446,7 @@ pub fn run() {
             commands::pin_to_desktop,
             commands::get_pin_image,
             commands::close_pin,
+            commands::get_my_pin_info,
             commands::set_pin_always_on_top,
             commands::resize_pinned_window,
         ])

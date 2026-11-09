@@ -46,9 +46,26 @@ pub fn set_hit_rects(state: State<'_, AppState>, rects: Vec<(f64, f64, f64, f64)
 }
 
 #[tauri::command]
-pub fn set_dragging(state: State<'_, AppState>, dragging: bool) {
+pub fn set_dragging(app: AppHandle, state: State<'_, AppState>, dragging: bool) {
     if let Ok(mut inner) = state.inner.lock() {
         inner.dragging = dragging;
+    }
+    if let Some(window) = app.get_webview_window("line") {
+        if let Ok(cursor) = app.cursor_position() {
+            if let Ok(Some(mon)) = app.monitor_from_point(cursor.x, cursor.y) {
+                let size = mon.size();
+                let s = mon.scale_factor();
+                let scale = state.inner.lock().map(|g| g.scale).unwrap_or(1.0);
+                if dragging {
+                    // Expand line window to full screen height so card can be dragged out without clipping
+                    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(size.width, size.height)));
+                } else {
+                    // Restore to normal strip height
+                    let phys_h = (crate::window::window_height(scale) * s).round() as u32;
+                    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(size.width, phys_h)));
+                }
+            }
+        }
     }
 }
 
@@ -681,6 +698,40 @@ pub fn close_pin(app: AppHandle, id: String) -> CmdResult<()> {
 #[tauri::command]
 pub fn set_pin_always_on_top(window: tauri::WebviewWindow, on_top: bool) -> CmdResult<()> {
     window.set_always_on_top(on_top).map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
+pub struct MyPinInfo {
+    pub id: String,
+    pub data_url: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[tauri::command]
+pub fn get_my_pin_info(
+    window: tauri::WebviewWindow,
+    state: State<'_, AppState>,
+) -> CmdResult<MyPinInfo> {
+    let label = window.label();
+    let id = label.strip_prefix("pin-").unwrap_or(label).to_string();
+    let item = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .cloned()
+            .ok_or_else(|| format!("item {} not found", id))?
+    };
+    let data_url = line::full_image_data_url(&item)?;
+    let (width, height) = image::image_dimensions(&item.path).unwrap_or((400, 300));
+    Ok(MyPinInfo {
+        id,
+        data_url,
+        width,
+        height,
+    })
 }
 
 #[tauri::command]

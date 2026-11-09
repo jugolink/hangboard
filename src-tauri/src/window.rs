@@ -362,9 +362,9 @@ pub fn open_pin_window(
     win_h = win_h.max(120.0);
 
     let profile_base = crate::data_root(app)
-        .map(|r| r.join("profiles"))
+        .map(|r| r.join("webview2"))
         .unwrap_or_else(|_| std::path::PathBuf::from("webview2"));
-    let pin_profile = profile_base.join("pin");
+    let pin_profile = profile_base.join(format!("pin-{}", id));
     let _ = std::fs::create_dir_all(&pin_profile);
 
     let mut builder = tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App("pin.html".into()))
