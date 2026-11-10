@@ -20,6 +20,29 @@ pub fn freeze_primary() -> Result<CaptureBuf, String> {
         .or_else(|| monitors.first())
         .ok_or_else(|| "no monitor found".to_string())?;
 
+    freeze_monitor(monitor)
+}
+
+/// Grab the monitor currently under the cursor into memory, falling back to primary.
+pub fn freeze_current(cursor_x: i32, cursor_y: i32) -> Result<CaptureBuf, String> {
+    let monitors = xcap::Monitor::all().map_err(|e| e.to_string())?;
+    let monitor = monitors
+        .iter()
+        .find(|m| {
+            let x = m.x().unwrap_or(0);
+            let y = m.y().unwrap_or(0);
+            let w = m.width().unwrap_or(0) as i32;
+            let h = m.height().unwrap_or(0) as i32;
+            cursor_x >= x && cursor_x < x + w && cursor_y >= y && cursor_y < y + h
+        })
+        .or_else(|| monitors.iter().find(|m| m.is_primary().unwrap_or(false)))
+        .or_else(|| monitors.first())
+        .ok_or_else(|| "no monitor found".to_string())?;
+
+    freeze_monitor(monitor)
+}
+
+fn freeze_monitor(monitor: &xcap::Monitor) -> Result<CaptureBuf, String> {
     let image = monitor.capture_image().map_err(|e| e.to_string())?;
 
     Ok(CaptureBuf {

@@ -46,40 +46,9 @@ pub fn set_hit_rects(state: State<'_, AppState>, rects: Vec<(f64, f64, f64, f64)
 }
 
 #[tauri::command]
-pub fn set_dragging(app: AppHandle, state: State<'_, AppState>, dragging: bool) {
+pub fn set_dragging(state: State<'_, AppState>, dragging: bool) {
     if let Ok(mut inner) = state.inner.lock() {
         inner.dragging = dragging;
-    }
-    if let Some(hover) = app.try_state::<crate::hover::HoverState>() {
-        if dragging {
-            hover
-                .pass_through
-                .store(false, std::sync::atomic::Ordering::SeqCst);
-        }
-    }
-    if let Some(window) = app.get_webview_window("line") {
-        if dragging {
-            let _ = window.set_ignore_cursor_events(false);
-        }
-        let mon = app
-            .cursor_position()
-            .ok()
-            .and_then(|c| app.monitor_from_point(c.x, c.y).ok().flatten())
-            .or_else(|| app.primary_monitor().ok().flatten());
-        if let Some(mon) = mon {
-            let size = mon.size();
-            let scale = state.inner.lock().map(|g| g.scale).unwrap_or(1.0);
-            if dragging {
-                // Expand line window to full screen height so card can be dragged out without clipping
-                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize::new(
-                    size.width,
-                    size.height,
-                )));
-            } else {
-                // Restore to normal strip height and position
-                let _ = crate::window::place_on_monitor(&window, &mon, scale);
-            }
-        }
     }
 }
 
@@ -137,7 +106,16 @@ pub fn pin_item(
 /// overlay itself.
 #[tauri::command]
 pub fn begin_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
-    let buf = capture::freeze_primary()?;
+    // 1. Hide line window and ensure cursor pass-through so it cannot block overlay
+    if let Some(line) = app.get_webview_window("line") {
+        let _ = line.set_ignore_cursor_events(true);
+        let _ = line.hide();
+    }
+
+    let cursor = app
+        .cursor_position()
+        .unwrap_or(tauri::PhysicalPosition::new(0.0, 0.0));
+    let buf = capture::freeze_current(cursor.x as i32, cursor.y as i32)?;
 
     // The backdrop is a JPEG: a few hundred KB instead of several MB of PNG,
     // and the slight loss costs nothing because the crop is taken from the
@@ -178,6 +156,18 @@ pub fn begin_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()
     }
 
     let window = app.state::<Overlay>().window(&app)?;
+    let mon = app
+        .monitor_from_point(cursor.x, cursor.y)
+        .ok()
+        .flatten()
+        .or_else(|| app.primary_monitor().ok().flatten());
+    if let Some(mon) = mon {
+        let pos = mon.position();
+        let size = mon.size();
+        let _ = window.set_position(tauri::Position::Physical(*pos));
+        let _ = window.set_size(tauri::Size::Physical(*size));
+    }
+
     window
         .emit(
             "capture:begin",
@@ -190,6 +180,8 @@ pub fn begin_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()
         )
         .map_err(|e| e.to_string())?;
     window.show().map_err(|e| e.to_string())?;
+    let _ = window.set_ignore_cursor_events(false);
+    let _ = window.set_always_on_top(true);
     window.set_focus().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -226,6 +218,9 @@ pub fn finish_capture(
     if let Ok(overlay) = app.state::<Overlay>().window(&app) {
         let _ = overlay.hide();
     }
+    if let Some(line) = app.get_webview_window("line") {
+        let _ = line.show();
+    }
 
     crate::persist(&app);
     crate::emit_items(&app);
@@ -240,6 +235,9 @@ pub fn cancel_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<(
     }
     if let Ok(overlay) = app.state::<Overlay>().window(&app) {
         let _ = overlay.hide();
+    }
+    if let Some(line) = app.get_webview_window("line") {
+        let _ = line.show();
     }
     Ok(())
 }
@@ -670,96 +668,4 @@ pub fn open_settings_file(app: AppHandle) -> Result<(), String> {
     #[cfg(windows)]
     let _ = std::process::Command::new("notepad").arg(&path).spawn();
     Ok(())
-}
-
-#[tauri::command]
-pub fn context_pin(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
-    let item = context_item(&state)?;
-    crate::window::open_pin_window(&app, &item.id, None, None)?;
-    close_context(app, state)
-}
-
-#[tauri::command]
-pub fn pin_to_desktop(app: AppHandle, id: String, x: Option<f64>, y: Option<f64>) -> CmdResult<()> {
-    // The front end reports the mouse-up point in CSS/logical pixels
-    // (`PointerEvent.screenX/screenY`), which is exactly the coordinate space
-    // `WebviewWindowBuilder::position` expects. Pass them through unchanged so
-    // the pin lands where the user released the pointer. The previous code
-    // ignored these and re-read the live cursor position, which had already
-    // drifted (and could sit outside the expanded drag window), placing the
-    // pin away from the release point.
-    crate::window::open_pin_window(&app, &id, x, y)
-}
-
-#[tauri::command]
-pub fn get_pin_image(state: State<'_, AppState>, id: String) -> CmdResult<String> {
-    let item = {
-        let inner = state.inner.lock().map_err(|e| e.to_string())?;
-        inner
-            .items
-            .iter()
-            .find(|i| i.id == id)
-            .cloned()
-            .ok_or("no such item")?
-    };
-    line::full_image_data_url(&item)
-}
-
-#[tauri::command]
-pub fn close_pin(app: AppHandle, id: String) -> CmdResult<()> {
-    let label = format!("pin-{}", id);
-    if let Some(win) = app.get_webview_window(&label) {
-        let _ = win.close();
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn set_pin_always_on_top(window: tauri::WebviewWindow, on_top: bool) -> CmdResult<()> {
-    window.set_always_on_top(on_top).map_err(|e| e.to_string())
-}
-
-#[derive(serde::Serialize)]
-pub struct MyPinInfo {
-    pub id: String,
-    pub data_url: String,
-    pub width: u32,
-    pub height: u32,
-}
-
-#[tauri::command]
-pub fn get_my_pin_info(
-    window: tauri::WebviewWindow,
-    state: State<'_, AppState>,
-) -> CmdResult<MyPinInfo> {
-    let label = window.label();
-    let id = label.strip_prefix("pin-").unwrap_or(label).to_string();
-    let item = {
-        let inner = state.inner.lock().map_err(|e| e.to_string())?;
-        inner
-            .items
-            .iter()
-            .find(|i| i.id == id)
-            .cloned()
-            .ok_or_else(|| format!("item {} not found", id))?
-    };
-    let data_url = line::full_image_data_url(&item)?;
-    let (width, height) = image::image_dimensions(&item.path).unwrap_or((400, 300));
-    Ok(MyPinInfo {
-        id,
-        data_url,
-        width,
-        height,
-    })
-}
-
-#[tauri::command]
-pub fn resize_pinned_window(
-    window: tauri::WebviewWindow,
-    width: f64,
-    height: f64,
-) -> CmdResult<()> {
-    window
-        .set_size(tauri::LogicalSize::new(width, height))
-        .map_err(|e| e.to_string())
 }

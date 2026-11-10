@@ -435,7 +435,6 @@ pub fn run() {
             commands::context_copy,
             commands::context_open,
             commands::context_preview,
-            commands::context_pin,
             commands::context_reveal,
             commands::context_export,
             commands::context_discard,
@@ -448,12 +447,6 @@ pub fn run() {
             commands::close_settings_window,
             commands::open_settings_file,
             commands::drag_window,
-            commands::pin_to_desktop,
-            commands::get_pin_image,
-            commands::close_pin,
-            commands::get_my_pin_info,
-            commands::set_pin_always_on_top,
-            commands::resize_pinned_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hangboard");

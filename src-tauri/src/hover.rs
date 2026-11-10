@@ -140,11 +140,25 @@ pub fn spawn(app: AppHandle) {
         let scale = mon.scale_factor();
         let hover = app.state::<HoverState>();
         let state = app.state::<AppState>();
-        let (revealed, dragging, pinned, auto_dismiss_at) = state
+        let (revealed, dragging, pinned, auto_dismiss_at, in_capture) = state
             .inner
             .lock()
-            .map(|g| (g.revealed, g.dragging, g.pinned, g.auto_dismiss_at))
-            .unwrap_or((false, false, false, None));
+            .map(|g| {
+                (
+                    g.revealed,
+                    g.dragging,
+                    g.pinned,
+                    g.auto_dismiss_at,
+                    g.capture.is_some(),
+                )
+            })
+            .unwrap_or((false, false, false, None, false));
+
+        // When a capture session is in progress, the overlay window owns the desktop.
+        // The hover loop must yield completely so the line window never pops up or steals focus.
+        if in_capture {
+            continue;
+        }
 
         // Multi-monitor roaming: when line is not revealed and user moves between monitors,
         // roam the line window to the active monitor.
