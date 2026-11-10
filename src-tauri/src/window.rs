@@ -385,7 +385,7 @@ pub fn open_pin_window(
     let profile_base = crate::data_root(app)
         .map(|r| r.join("webview2"))
         .unwrap_or_else(|_| std::path::PathBuf::from("webview2"));
-    let pin_profile = profile_base.join(format!("pin-{}", id));
+    let pin_profile = profile_base.join("pin");
     let _ = std::fs::create_dir_all(&pin_profile);
 
     let mut builder =
@@ -409,7 +409,13 @@ pub fn open_pin_window(
         builder = builder.center();
     }
 
-    let win = builder.build().map_err(|e| e.to_string())?;
+    let win = match builder.build() {
+        Ok(w) => w,
+        Err(e) => {
+            eprintln!("Failed to create pin window '{label}': {e}");
+            return Err(e.to_string());
+        }
+    };
     let _ = win.show();
     let _ = win.set_focus();
     Ok(())

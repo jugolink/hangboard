@@ -173,14 +173,6 @@ function render() {
       let isDragging = false;
       let isReadyToPin = false;
 
-      // A click still has to reach the card's own "click" listener for the
-      // copy action, so do NOT capture the pointer (pointer capture would
-      // swallow the click). The window-level move/up listeners below track
-      // the drag instead.
-      isGlobalDragging = true;
-      document.body.classList.add("is-dragging");
-      void invoke("set_dragging", { dragging: true });
-
       const onPointerMove = (ev) => {
         const dx = ev.clientX - startClientX;
         const dy = ev.clientY - startClientY;
@@ -190,7 +182,13 @@ function render() {
 
         if (!isDragging && Math.hypot(dx, dy) > 5) {
           isDragging = true;
+          isGlobalDragging = true;
+          document.body.classList.add("is-dragging");
           card.classList.add("dragging");
+          try {
+            card.setPointerCapture(e.pointerId);
+          } catch (_) {}
+          void invoke("set_dragging", { dragging: true });
         }
 
         if (isDragging) {
@@ -215,6 +213,12 @@ function render() {
         window.removeEventListener("pointermove", onPointerMove);
         window.removeEventListener("pointerup", finishDrag);
         window.removeEventListener("pointercancel", finishDrag);
+
+        try {
+          if (card.hasPointerCapture(e.pointerId)) {
+            card.releasePointerCapture(e.pointerId);
+          }
+        } catch (_) {}
 
         const wasDragging = isDragging;
         const finalDy = lastDy;
@@ -266,7 +270,6 @@ function render() {
           card.style.transform = "";
           isGlobalDragging = false;
           document.body.classList.remove("is-dragging");
-          void invoke("set_dragging", { dragging: false });
         }
       };
 

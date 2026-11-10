@@ -51,16 +51,12 @@ pub fn set_dragging(app: AppHandle, state: State<'_, AppState>, dragging: bool) 
         inner.dragging = dragging;
     }
     if let Some(hover) = app.try_state::<crate::hover::HoverState>() {
-        if dragging {
-            hover
-                .pass_through
-                .store(false, std::sync::atomic::Ordering::SeqCst);
-        }
+        hover
+            .pass_through
+            .store(!dragging, std::sync::atomic::Ordering::SeqCst);
     }
     if let Some(window) = app.get_webview_window("line") {
-        if dragging {
-            let _ = window.set_ignore_cursor_events(false);
-        }
+        let _ = window.set_ignore_cursor_events(!dragging);
         let mon = app
             .cursor_position()
             .ok()
@@ -137,7 +133,16 @@ pub fn pin_item(
 /// overlay itself.
 #[tauri::command]
 pub fn begin_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
-    let buf = capture::freeze_primary()?;
+    // 1. Hide line window and ensure cursor pass-through so it cannot block overlay
+    if let Some(line) = app.get_webview_window("line") {
+        let _ = line.set_ignore_cursor_events(true);
+        let _ = line.hide();
+    }
+
+    let cursor = app
+        .cursor_position()
+        .unwrap_or(tauri::PhysicalPosition::new(0.0, 0.0));
+    let buf = capture::freeze_current(cursor.x as i32, cursor.y as i32)?;
 
     // The backdrop is a JPEG: a few hundred KB instead of several MB of PNG,
     // and the slight loss costs nothing because the crop is taken from the
@@ -178,6 +183,18 @@ pub fn begin_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()
     }
 
     let window = app.state::<Overlay>().window(&app)?;
+    let mon = app
+        .monitor_from_point(cursor.x, cursor.y)
+        .ok()
+        .flatten()
+        .or_else(|| app.primary_monitor().ok().flatten());
+    if let Some(mon) = mon {
+        let pos = mon.position();
+        let size = mon.size();
+        let _ = window.set_position(tauri::Position::Physical(*pos));
+        let _ = window.set_size(tauri::Size::Physical(*size));
+    }
+
     window
         .emit(
             "capture:begin",
@@ -190,6 +207,8 @@ pub fn begin_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()
         )
         .map_err(|e| e.to_string())?;
     window.show().map_err(|e| e.to_string())?;
+    let _ = window.set_ignore_cursor_events(false);
+    let _ = window.set_always_on_top(true);
     window.set_focus().map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -226,6 +245,9 @@ pub fn finish_capture(
     if let Ok(overlay) = app.state::<Overlay>().window(&app) {
         let _ = overlay.hide();
     }
+    if let Some(line) = app.get_webview_window("line") {
+        let _ = line.show();
+    }
 
     crate::persist(&app);
     crate::emit_items(&app);
@@ -240,6 +262,9 @@ pub fn cancel_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<(
     }
     if let Ok(overlay) = app.state::<Overlay>().window(&app) {
         let _ = overlay.hide();
+    }
+    if let Some(line) = app.get_webview_window("line") {
+        let _ = line.show();
     }
     Ok(())
 }

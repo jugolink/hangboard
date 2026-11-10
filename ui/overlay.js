@@ -66,7 +66,9 @@ window.addEventListener("pointerdown", (event) => {
     box = { x: event.clientX, y: event.clientY, w: 0, h: 0 };
     hint.classList.add("gone");
   }
-  window.setPointerCapture?.(event.pointerId);
+  try {
+    document.body.setPointerCapture(event.pointerId);
+  } catch (_) {}
 });
 
 function inside(x, y, r) {
@@ -92,7 +94,12 @@ window.addEventListener("pointermove", (event) => {
   paint();
 });
 
-window.addEventListener("pointerup", () => {
+window.addEventListener("pointerup", (event) => {
+  try {
+    if (document.body.hasPointerCapture(event.pointerId)) {
+      document.body.releasePointerCapture(event.pointerId);
+    }
+  } catch (_) {}
   if (!drag) return;
   drag = null;
 
@@ -148,7 +155,7 @@ async function commit() {
   }
 }
 
-// Enter commits, Escape cancels, a plain double-click grabs the whole screen.
+// Enter commits, Escape cancels, right-click cancels, double-click grabs full screen.
 window.addEventListener("keydown", async (event) => {
   if (event.key === "Escape") {
     await invoke("cancel_capture");
@@ -158,6 +165,11 @@ window.addEventListener("keydown", async (event) => {
     }
     await commit();
   }
+});
+
+window.addEventListener("contextmenu", async (event) => {
+  event.preventDefault();
+  await invoke("cancel_capture");
 });
 
 window.addEventListener("dblclick", async () => {
@@ -175,6 +187,9 @@ async function boot() {
     drag = null;
     paint();
     hint.classList.remove("gone");
+    try {
+      window.focus();
+    } catch (_) {}
   });
 }
 
