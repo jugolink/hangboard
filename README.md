@@ -19,11 +19,18 @@ down, holding your recent screenshots like photos on a clothesline.
 - **`Ctrl+Alt+H`** — capture a region. Drag a rectangle, release.
 - **`Ctrl+Alt+Shift+H`** — capture the whole screen.
 - **Click a photo** — copy it to the clipboard.
+- **Double-click a photo** — open the centred lightbox preview.
+- **Right-click a photo** — the context menu: copy, open, reveal, export, discard.
 - **✕ on a photo** — take it down.
 - **☆ on a photo** — pin it, so it is the last to fall when the line fills up.
 
 New screenshots go to the clipboard immediately, so you can paste without
 clicking anything.
+
+The tray icon carries the same actions plus the settings panel, where the
+hotkeys, the line size, the clipboard watch, autostart and the UI language
+(English or Simplified Chinese) can be changed. The line follows the monitor the
+pointer is on, and a capture grabs whichever monitor the pointer is on.
 
 ## Requirements
 
@@ -64,15 +71,22 @@ Screenshots and the line index live in that directory, under `shots/` and
 ```
 src-tauri/src/
   lib.rs        app setup, hotkeys, data directory, wiring
-  window.rs     creates the two windows, owns their geometry
+  window.rs     creates the five windows, owns their geometry
   hover.rs      polls the pointer, decides when to drop and retract
   capture.rs    freezes the screen, cuts rectangles out of the frozen frame
   line.rs       pixels to items, persistence, clipboard, deletion
   commands.rs   the invoke surface the webview calls
   state.rs      shared state and the geometry constants
+  settings.rs   settings.json, defaults, load/save
+  tray.rs       the tray icon, its menu, and the localised labels
+  clipboard.rs  polls the Windows clipboard for new images
+  autostart.rs  the "open at login" registry entry
 ui/
   index.html    the line window
   overlay.html  the region-picking overlay
+  preview.html  the centred lightbox preview
+  context.html  the per-photo context menu
+  settings.html the settings panel
 docs/
   SPEC.md       what v0.1 does and does not do
   adr/          why the load-bearing decisions went the way they did

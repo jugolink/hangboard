@@ -21,7 +21,7 @@ paste.
 
 | Behaviour | Detail |
 | --- | --- |
-| Show the line | Pointer rests in the middle third of the top edge for 250 ms. |
+| Show the line | Pointer rests in the hot band of the top edge for 250 ms. |
 | Hide the line | Pointer leaves the line and the photos for 500 ms. |
 | Capture a region | `Ctrl+Alt+H`, drag a rectangle, release. |
 | Capture everything | `Ctrl+Alt+Shift+H`. |
@@ -39,9 +39,8 @@ paste.
 - **Recording, and trimming a recording.** The original can hang a screen
   recording and trim it by holding. Substantial on its own.
 - **Drag and drop out to Explorer.** Copy-then-paste covers the common case.
-- **Per-monitor lines.** One line, on the primary monitor. A second monitor is
-  a place to put other windows, not a second line.
-- **Translations.** English only.
+- **A second line.** There is one line, and it follows the pointer between
+  monitors; two monitors do not each get their own rope.
 
 ## How it works
 
@@ -49,7 +48,8 @@ paste.
   Ctrl+Alt+H
       │
       ▼
-  capture::freeze_primary()   one xcap grab of the primary monitor, held in RAM
+  capture::freeze_current()   one xcap grab of the monitor under the pointer,
+      │                       held in RAM
       │
       ▼
   overlay window              shows the still as a backdrop; user drags a rect
@@ -77,25 +77,28 @@ pointer enters the menu bar. Windows has no equivalent, so a 30 Hz thread asks
 where the pointer is. 30 Hz is fast enough to feel instant and cheap enough not
 to register.
 
-**The line window never moves.** It is parked at the top edge for the whole
-run, and retracting slides the content up inside it with a CSS transform.
-Moving a window 60 times a second means 60 `SetWindowPos` calls, which either
-stutters or jump-cuts.
+**The line window does not animate by moving.** It is parked at the top edge,
+and retracting slides the content up inside it with a CSS transform. Animating a
+window 60 times a second means 60 `SetWindowPos` calls, which either stutters or
+jump-cuts. The one exception is multi-monitor roaming: while the line is
+retracted, a monitor change re-parks the window at the top of the monitor the
+pointer moved to, in physical pixels.
 
 **The window is click-through except over a photo.** A window sitting on the
 top strip of the screen would otherwise swallow every click on title bars and
 browser tabs. The webview reports where it placed the photos; a Rust thread
 compares that against the pointer and flips `set_ignore_cursor_events`.
 
-**Only the middle third of the top edge is hot.** The left third is the Start
-button, the right third is the tray. Those should open their own menus.
+**Only the central 84% of the top edge is hot.** The outer 8% on each side
+belongs to the Start button and the tray; hovering those should open their own
+menus, not the line.
 
 ## Known limits
 
-- Multi-monitor: the line lives on the primary monitor, and a capture only
-  grabs the primary monitor.
-- Not DPI-aware across monitors with different scaling factors.
-- No autostart, no installer polish, no update check.
+- Drag and drop out to Explorer is not implemented; copy-then-paste is the
+  supported path.
+- There is no annotation editor, and no recording.
+- Not verified on a machine that is not the development machine.
 
 ## Definition of done for v0.1
 
