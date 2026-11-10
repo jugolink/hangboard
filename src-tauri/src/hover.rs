@@ -143,7 +143,15 @@ pub fn spawn(app: AppHandle) {
         let (revealed, dragging, pinned, auto_dismiss_at, in_capture) = state
             .inner
             .lock()
-            .map(|g| (g.revealed, g.dragging, g.pinned, g.auto_dismiss_at, g.capture.is_some()))
+            .map(|g| {
+                (
+                    g.revealed,
+                    g.dragging,
+                    g.pinned,
+                    g.auto_dismiss_at,
+                    g.capture.is_some(),
+                )
+            })
             .unwrap_or((false, false, false, None, false));
 
         // When a capture session is in progress, the overlay window owns the desktop.
