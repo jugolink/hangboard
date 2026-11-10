@@ -10,10 +10,8 @@ const counter = document.getElementById("counter");
 const btnClose = document.getElementById("btn-close");
 const btnPrev = document.getElementById("btn-prev");
 const btnNext = document.getElementById("btn-next");
-const btnPin = document.getElementById("btn-pin");
 const btnCopy = document.getElementById("btn-copy");
 const btnOpen = document.getElementById("btn-open");
-const pinLabel = document.getElementById("pin-label");
 const copyLabel = document.getElementById("copy-label");
 const openLabel = document.getElementById("open-label");
 const hintKey = document.getElementById("hint-key");
@@ -24,7 +22,6 @@ let currentItemId = null;
 function updateLanguage(lang) {
   currentLang = lang;
   const isZh = lang === "zh-CN";
-  if (pinLabel) pinLabel.textContent = isZh ? "钉在桌面" : "Pin";
   if (copyLabel) copyLabel.textContent = isZh ? "复制" : "Copy";
   if (openLabel) openLabel.textContent = isZh ? "打开" : "Open";
   if (hintKey) hintKey.textContent = isZh ? "Esc 退出 · ← → 切换" : "Esc to exit · ← → to step";
@@ -73,14 +70,6 @@ async function close() {
 btnClose.addEventListener("click", close);
 btnPrev.addEventListener("click", () => void step(-1));
 btnNext.addEventListener("click", () => void step(1));
-
-if (btnPin) {
-  btnPin.addEventListener("click", async () => {
-    if (!currentItemId) return;
-    await invoke("pin_to_desktop", { id: currentItemId });
-    await close();
-  });
-}
 
 btnCopy.addEventListener("click", async () => {
   if (!currentItemId) return;
