@@ -91,6 +91,7 @@ ui/
   preview.html  the centred lightbox preview
   context.html  the per-photo context menu
   settings.html the settings panel
+  ocr.html      the OCR and QR result editing window
 docs/
   SPEC.md       what v0.1 does and does not do
   adr/          why the load-bearing decisions went the way they did

@@ -3,10 +3,10 @@
 //! Uses Windows 10/11 native `Windows.Media.Ocr` engine (zero extra runtime bloat)
 //! and pure-Rust `rqrr` for lightning-fast QR code detection.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-#[derive(Serialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct RecognizeResult {
     /// Full recognized OCR text, if any.
     pub text: String,

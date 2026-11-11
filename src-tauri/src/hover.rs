@@ -42,7 +42,7 @@ impl HoverState {
             outside_since: Mutex::new(None),
             running: AtomicBool::new(false),
             pass_through: AtomicBool::new(false),
-            reveal_on_hover: AtomicBool::new(true),
+            reveal_on_hover: AtomicBool::new(false),
             current_monitor_pos: Mutex::new(None),
         }
     }

@@ -485,13 +485,17 @@ pub async fn context_ocr(
         }
     }
 
-    let _ = app.emit(
-        "ocr:result",
-        serde_json::json!({
-            "id": id,
-            "result": &result,
-        }),
-    );
+    if result.has_qr || !result.text.trim().is_empty() {
+        let _ = open_ocr_window(app.clone(), result.clone());
+    } else {
+        let _ = app.emit(
+            "ocr:result",
+            serde_json::json!({
+                "id": id,
+                "result": &result,
+            }),
+        );
+    }
 
     Ok(result)
 }
@@ -768,6 +772,25 @@ pub async fn recognize_image(
     }
 
     Ok(result)
+}
+
+#[tauri::command]
+pub fn open_ocr_window(app: AppHandle, result: crate::ocr::RecognizeResult) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("ocr") {
+        let _ = win.center();
+        let _ = win.show();
+        let _ = win.set_focus();
+        let _ = win.emit("ocr:display", result);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_ocr_window(app: AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("ocr") {
+        let _ = win.hide();
+    }
+    Ok(())
 }
 
 #[tauri::command]

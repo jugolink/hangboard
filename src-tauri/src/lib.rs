@@ -445,6 +445,8 @@ pub fn run() {
             commands::context_discard_left,
             commands::context_discard_right,
             commands::recognize_image,
+            commands::open_ocr_window,
+            commands::close_ocr_window,
             commands::open_url,
             commands::check_shortcut,
             commands::get_settings,

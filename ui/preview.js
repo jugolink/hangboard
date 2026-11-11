@@ -111,26 +111,8 @@ btnOcr.addEventListener("click", async () => {
     btnOcr.classList.remove("loading");
     ocrLabel.textContent = isZh ? "提取文字" : "Extract";
 
-    if (res.has_qr) {
-      if (res.is_url) {
-        showToast(
-          isZh
-            ? `✓ 已识别二维码并复制链接 (点击打开)`
-            : `✓ QR URL copied (Click to open)`,
-          true,
-          () => void invoke("open_url", { url: res.primary_text }),
-        );
-      } else {
-        showToast(
-          isZh ? `✓ 已识别二维码并复制内容` : `✓ QR text copied to clipboard`,
-        );
-      }
-    } else if (res.text && res.text.trim()) {
-      showToast(
-        isZh
-          ? `✓ 已提取文字并复制 (${res.text.trim().length}字)`
-          : `✓ Text extracted and copied (${res.text.trim().length} chars)`,
-      );
+    if (res.has_qr || (res.text && res.text.trim())) {
+      await invoke("open_ocr_window", { result: res });
     } else {
       showToast(
         isZh ? "未识别到文字或二维码" : "No text or QR code detected",
