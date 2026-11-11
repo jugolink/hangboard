@@ -15,14 +15,14 @@
 
 ---
 
-### 阶段二：拖拽输出到外部软件 (Drag & Drop Out)
-- [ ] **Win32 原生 OLE 拖放支持 (`DoDragDrop`)**
-  - [ ] 封装系统级 `IDataObject` 与 `IDropSource`，向操作系统暴露 `CF_HDROP`（真实文件路径）与 `CF_DIB`（位图数据）
-  - [ ] 卡片向外拖拽时支持无缝拖入微信、QQ、飞书、Photoshop、Word、VS Code 或 Windows 资源管理器文件夹
-- [ ] **交互手势区隔**
-  - [ ] 在桌面空白处向下拖拽松开 $\rightarrow$ 触发桌面贴图
-  - [ ] 拖入外部第三方应用窗口内部松开 $\rightarrow$ 触发系统级文件传输输出原图
-  - [ ] 桌面贴图窗口同样支持按住直接拖出文件至第三方应用
+### 阶段二：拖拽输出到外部软件 (Drag & Drop Out) [已完成]
+- [x] **Win32 原生 OLE 拖放支持 (`SHDoDragDrop` / `IDataObject`)**
+  - [x] 封装系统级 `IShellItemArray` 与 `BHID_DataObject`，向操作系统暴露标准 `CF_HDROP`（真实文件路径）、Shell Item 格式与系统级拖放阴影缩略图
+  - [x] 卡片向外拖拽时支持无缝拖入微信、QQ、飞书、Photoshop、Word、VS Code 或 Windows 资源管理器文件夹
+- [x] **交互手势与状态联动**
+  - [x] 单击卡片依然保持极速复制至系统剪贴板，按住移动或拖拽时无缝进入系统级原生拖放
+  - [x] 拖拽执行期间通过 `dragging` 状态锁暂停悬停回缩判定，释放后自动恢复
+  - [x] 灯箱大图预览 (Lightbox) 同样支持直接按住拖拽输出至外部应用
 
 ---
 

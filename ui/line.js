@@ -158,9 +158,65 @@ function render() {
 
     rects.push([x - w / 2, y + CARD_DROP, w, h]);
 
+    card.draggable = true;
+    let dragStarted = false;
+    let downPos = null;
+
+    function startDragOperation() {
+      if (dragStarted) return;
+      dragStarted = true;
+      void invoke("start_card_drag", { id: item.id }).finally(() => {
+        setTimeout(() => {
+          dragStarted = false;
+        }, 200);
+      });
+    }
+
+    card.addEventListener("dragstart", (event) => {
+      if (
+        event.target === down || down.contains(event.target) ||
+        event.target === pin || pin.contains(event.target)
+      ) {
+        event.preventDefault();
+        return;
+      }
+      event.preventDefault();
+      startDragOperation();
+    });
+
+    card.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      if (
+        event.target === down || down.contains(event.target) ||
+        event.target === pin || pin.contains(event.target)
+      ) return;
+      downPos = { x: event.clientX, y: event.clientY };
+    });
+
+    card.addEventListener("pointermove", (event) => {
+      if (!downPos || (event.buttons & 1) === 0) return;
+      const dist = Math.hypot(event.clientX - downPos.x, event.clientY - downPos.y);
+      if (dist > 6) {
+        downPos = null;
+        startDragOperation();
+      }
+    });
+
+    card.addEventListener("pointerup", () => {
+      downPos = null;
+    });
+
+    card.addEventListener("pointercancel", () => {
+      downPos = null;
+    });
+
     // One click copies. No double-click handler, so there is no interval to
     // wait out before the clipboard changes.
     card.addEventListener("click", async (event) => {
+      if (dragStarted) {
+        dragStarted = false;
+        return;
+      }
       if (event.target === down || down.contains(event.target)) {
         down.style.pointerEvents = "none";
         // Play the drop-out animation, then hand off to Rust to delete and
