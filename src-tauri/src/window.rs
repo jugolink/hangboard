@@ -268,7 +268,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     WebviewWindowBuilder::new(app, "context", WebviewUrl::App("context.html".into()))
         .data_directory(context_profile)
         .title("Hangboard menu")
-        .inner_size(224.0, 320.0)
+        .inner_size(224.0, 350.0)
         .decorations(false)
         .transparent(true)
         .shadow(false)

@@ -455,6 +455,47 @@ pub fn context_preview(app: AppHandle, state: State<'_, AppState>) -> CmdResult<
     open_preview(app, state, id)
 }
 
+/// Extract text or QR code from the context item, copy to clipboard, and emit event.
+#[tauri::command]
+pub async fn context_ocr(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> CmdResult<crate::ocr::RecognizeResult> {
+    let (id, path) = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        let id = inner.context_id.clone().ok_or("no context item")?;
+        let item = inner
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .ok_or("no such item")?;
+        (id, std::path::PathBuf::from(&item.path))
+    };
+
+    close_context(app.clone(), state.clone())?;
+
+    let result = crate::ocr::recognize_file(&path)
+        .await
+        .map_err(|e| format!("Recognition failed: {e}"))?;
+
+    if !result.primary_text.trim().is_empty() {
+        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+            crate::clipboard::mark_own_write();
+            let _ = clipboard.set_text(result.primary_text.clone());
+        }
+    }
+
+    let _ = app.emit(
+        "ocr:result",
+        serde_json::json!({
+            "id": id,
+            "result": &result,
+        }),
+    );
+
+    Ok(result)
+}
+
 /// Reveal the item in Explorer (selects it).
 #[tauri::command]
 pub fn context_reveal(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
@@ -698,4 +739,42 @@ pub fn open_settings_file(app: AppHandle) -> Result<(), String> {
     #[cfg(windows)]
     let _ = std::process::Command::new("notepad").arg(&path).spawn();
     Ok(())
+}
+
+#[tauri::command]
+pub async fn recognize_image(
+    id: String,
+    state: State<'_, AppState>,
+) -> CmdResult<crate::ocr::RecognizeResult> {
+    let path = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .map(|i| std::path::PathBuf::from(&i.path))
+            .ok_or_else(|| format!("Item not found: {id}"))?
+    };
+
+    let result = crate::ocr::recognize_file(&path)
+        .await
+        .map_err(|e| format!("Recognition failed: {e}"))?;
+
+    if !result.primary_text.trim().is_empty() {
+        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+            crate::clipboard::mark_own_write();
+            let _ = clipboard.set_text(result.primary_text.clone());
+        }
+    }
+
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn open_url(url: String) -> CmdResult<()> {
+    let trimmed = url.trim();
+    if !trimmed.starts_with("http://") && !trimmed.starts_with("https://") {
+        return Err("Only http and https URLs can be opened".to_string());
+    }
+    open_path(trimmed)
 }

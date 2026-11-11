@@ -10,18 +10,39 @@ const counter = document.getElementById("counter");
 const btnClose = document.getElementById("btn-close");
 const btnPrev = document.getElementById("btn-prev");
 const btnNext = document.getElementById("btn-next");
+const btnOcr = document.getElementById("btn-ocr");
 const btnCopy = document.getElementById("btn-copy");
 const btnOpen = document.getElementById("btn-open");
+const ocrLabel = document.getElementById("ocr-label");
 const copyLabel = document.getElementById("copy-label");
 const openLabel = document.getElementById("open-label");
 const hintKey = document.getElementById("hint-key");
+const toast = document.getElementById("toast");
 
 let currentLang = "zh-CN";
 let currentItemId = null;
+let toastTimer = null;
+
+function showToast(text, isLink = false, onLinkClick = null) {
+  if (!toast) return;
+  if (toastTimer) clearTimeout(toastTimer);
+  toast.textContent = text;
+  toast.classList.remove("hidden", "link-toast");
+  if (isLink && onLinkClick) {
+    toast.classList.add("link-toast");
+    toast.onclick = onLinkClick;
+  } else {
+    toast.onclick = null;
+  }
+  toastTimer = setTimeout(() => {
+    toast.classList.add("hidden");
+  }, isLink ? 4500 : 2500);
+}
 
 function updateLanguage(lang) {
   currentLang = lang;
   const isZh = lang === "zh-CN";
+  if (ocrLabel) ocrLabel.textContent = isZh ? "提取文字" : "Extract";
   if (copyLabel) copyLabel.textContent = isZh ? "复制" : "Copy";
   if (openLabel) openLabel.textContent = isZh ? "打开" : "Open";
   if (hintKey) hintKey.textContent = isZh ? "Esc 退出 · ← → 切换" : "Esc to exit · ← → to step";
@@ -46,6 +67,7 @@ async function refresh() {
     photo.src = url;
   }
 
+  if (toast) toast.classList.add("hidden");
   counter.textContent = count > 0 ? `${index + 1} / ${count}` : "";
 }
 
@@ -78,6 +100,48 @@ async function close() {
 btnClose.addEventListener("click", close);
 btnPrev.addEventListener("click", () => void step(-1));
 btnNext.addEventListener("click", () => void step(1));
+
+btnOcr.addEventListener("click", async () => {
+  if (!currentItemId) return;
+  const isZh = currentLang === "zh-CN";
+  btnOcr.classList.add("loading");
+  ocrLabel.textContent = isZh ? "识别中..." : "Extracting...";
+  try {
+    const res = await invoke("recognize_image", { id: currentItemId });
+    btnOcr.classList.remove("loading");
+    ocrLabel.textContent = isZh ? "提取文字" : "Extract";
+
+    if (res.has_qr) {
+      if (res.is_url) {
+        showToast(
+          isZh
+            ? `✓ 已识别二维码并复制链接 (点击打开)`
+            : `✓ QR URL copied (Click to open)`,
+          true,
+          () => void invoke("open_url", { url: res.primary_text }),
+        );
+      } else {
+        showToast(
+          isZh ? `✓ 已识别二维码并复制内容` : `✓ QR text copied to clipboard`,
+        );
+      }
+    } else if (res.text && res.text.trim()) {
+      showToast(
+        isZh
+          ? `✓ 已提取文字并复制 (${res.text.trim().length}字)`
+          : `✓ Text extracted and copied (${res.text.trim().length} chars)`,
+      );
+    } else {
+      showToast(
+        isZh ? "未识别到文字或二维码" : "No text or QR code detected",
+      );
+    }
+  } catch (err) {
+    btnOcr.classList.remove("loading");
+    ocrLabel.textContent = isZh ? "提取文字" : "Extract";
+    showToast(isZh ? `识别失败: ${err}` : `Recognition failed: ${err}`);
+  }
+});
 
 btnCopy.addEventListener("click", async () => {
   if (!currentItemId) return;

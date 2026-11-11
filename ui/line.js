@@ -367,6 +367,14 @@ function setRevealed(on) {
   }
 }
 
+function showCardFeedback(card, text) {
+  card.classList.remove("copied", "feedback-pill");
+  void card.offsetWidth;
+  card.dataset.feedback = text;
+  card.classList.add("feedback-pill");
+  setTimeout(() => card.classList.remove("feedback-pill"), 1200);
+}
+
 async function boot() {
   try {
     const lang = await invoke("get_language");
@@ -389,6 +397,23 @@ async function boot() {
   await listen("app:language", (event) => {
     updateLanguage(event.payload);
   });
+
+  await listen("ocr:result", (event) => {
+    const { id, result } = event.payload;
+    const card = cardsEl.querySelector(`.card[data-id="${id}"]`);
+    if (!card) return;
+    const isZh = currentLang === "zh-CN";
+    let text = "";
+    if (result.has_qr) {
+      text = isZh ? "✓ 已识别二维码" : "✓ QR Copied";
+    } else if (result.text && result.text.trim()) {
+      text = isZh ? "✓ 已提取文字" : "✓ Text Copied";
+    } else {
+      text = isZh ? "未识别到内容" : "No Content";
+    }
+    showCardFeedback(card, text);
+  });
+
 
   await listen("line:geometry", async () => {
     geo = await invoke("get_geometry", { scale: 1 });

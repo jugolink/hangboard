@@ -21,6 +21,7 @@ down, holding your recent screenshots like photos on a clothesline.
 - **Click a photo** — copy it to the clipboard.
 - **Double-click a photo** — open the centred lightbox preview.
 - **Right-click a photo** — the context menu: copy, open, reveal, export, discard.
+- **OCR & QR detection** — extract text or scan QR codes directly from the context menu or lightbox preview; automatically copies to clipboard and opens URLs.
 - **Drag a photo out** — a native OLE drag, so the file lands in Explorer, WeChat,
   QQ, Feishu, Word, Photoshop or VS Code. The lightbox preview drags out too.
 - **✕ on a photo** — take it down.
@@ -81,6 +82,7 @@ src-tauri/src/
   state.rs      shared state and the geometry constants
   settings.rs   settings.json, defaults, load/save
   tray.rs       the tray icon, its menu, and the localised labels
+  ocr.rs        Windows WinRT OCR and rqrr QR code detection
   clipboard.rs  polls the Windows clipboard for new images
   autostart.rs  the "open at login" registry entry
 ui/

@@ -359,6 +359,27 @@ html[lang="en"] .card.copied::after {
   content: "✓ Copied";
 }
 
+.card.feedback-pill::after {
+  content: attr(data-feedback);
+  position: absolute;
+  left: 50%;
+  bottom: -32px;
+  transform: translate(-50%, 0);
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.28);
+  font: 600 11px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1c1c1e;
+  white-space: nowrap;
+  animation: fade-up 1200ms ease forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+
 @keyframes fade-up {
   0% {
     opacity: 0;

@@ -19,6 +19,7 @@ pub mod commands;
 pub mod drag;
 pub mod hover;
 pub mod line;
+pub mod ocr;
 pub mod settings;
 pub mod state;
 pub mod tray;
@@ -437,11 +438,14 @@ pub fn run() {
             commands::context_copy,
             commands::context_open,
             commands::context_preview,
+            commands::context_ocr,
             commands::context_reveal,
             commands::context_export,
             commands::context_discard,
             commands::context_discard_left,
             commands::context_discard_right,
+            commands::recognize_image,
+            commands::open_url,
             commands::check_shortcut,
             commands::get_settings,
             commands::save_settings,
