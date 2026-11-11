@@ -53,11 +53,7 @@ pub fn set_dragging(state: State<'_, AppState>, dragging: bool) {
 }
 
 #[tauri::command]
-pub fn start_card_drag(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    id: String,
-) -> CmdResult<()> {
+pub fn start_card_drag(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<()> {
     let (path, window) = {
         let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
         let path = inner

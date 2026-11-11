@@ -49,18 +49,14 @@ pub mod imp {
             let _ = OleInitialize(None);
 
             let res = (|| -> windows::core::Result<()> {
-                let shell_item: IShellItem = SHCreateItemFromParsingName(
-                    &HSTRING::from(clean_path.as_str()),
-                    None,
-                )?;
+                let shell_item: IShellItem =
+                    SHCreateItemFromParsingName(&HSTRING::from(clean_path.as_str()), None)?;
 
                 let shell_items: IShellItemArray =
                     SHCreateShellItemArrayFromShellItem(&shell_item)?;
 
-                let data_object: IDataObject = shell_items.BindToHandler(
-                    None,
-                    &BHID_DATA_OBJECT,
-                )?;
+                let data_object: IDataObject =
+                    shell_items.BindToHandler(None, &BHID_DATA_OBJECT)?;
 
                 let hwnd_win = hwnd.map(|h| HWND(h as *mut _));
                 let _effect = SHDoDragDrop(
@@ -127,18 +123,26 @@ mod tests {
             let item_array = items.unwrap();
             let data_obj: Result<windows::Win32::System::Com::IDataObject, _> =
                 item_array.BindToHandler(None, &super::imp::BHID_DATA_OBJECT);
-            assert!(data_obj.is_ok(), "BindToHandler BHID_DataObject failed: {:?}", data_obj.err());
+            assert!(
+                data_obj.is_ok(),
+                "BindToHandler BHID_DataObject failed: {:?}",
+                data_obj.err()
+            );
 
             let obj = data_obj.unwrap();
             let fmt = windows::Win32::System::Com::FORMATETC {
                 cfFormat: 15, // CF_HDROP
                 ptd: std::ptr::null_mut(),
-                dwAspect: windows::Win32::System::Com::DVASPECT_CONTENT.0 as u32,
+                dwAspect: windows::Win32::System::Com::DVASPECT_CONTENT.0,
                 lindex: -1,
                 tymed: windows::Win32::System::Com::TYMED_HGLOBAL.0 as u32,
             };
             let query = obj.QueryGetData(&fmt);
-            assert_eq!(query, windows::Win32::Foundation::S_OK, "CF_HDROP must be supported by shell IDataObject");
+            assert_eq!(
+                query,
+                windows::Win32::Foundation::S_OK,
+                "CF_HDROP must be supported by shell IDataObject"
+            );
 
             windows::Win32::System::Ole::OleUninitialize();
         }

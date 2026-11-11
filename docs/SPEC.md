@@ -29,6 +29,7 @@ paste.
 | Copy a photo | Click it. One click, no double-click interval to wait out. |
 | Take a photo down | Click the ✕ at its top-left corner, or press `Delete` while hovering it. |
 | Pin a photo | Click the ☆ at its top-right corner. Pinned photos are the last to fall. |
+| Drag a photo out | Press and move past a 6 px threshold; the shell starts a native `CF_HDROP` drag. The lightbox preview drags out as well. |
 | Persist | The line survives a restart; photos are PNGs on disk. |
 
 ## What v0.1 deliberately does not do
@@ -38,7 +39,6 @@ paste.
   feature, not a corner to cut.
 - **Recording, and trimming a recording.** The original can hang a screen
   recording and trim it by holding. Substantial on its own.
-- **Drag and drop out to Explorer.** Copy-then-paste covers the common case.
 - **A second line.** There is one line, and it follows the pointer between
   monitors; two monitors do not each get their own rope.
 
@@ -95,8 +95,6 @@ menus, not the line.
 
 ## Known limits
 
-- Drag and drop out to Explorer is not implemented; copy-then-paste is the
-  supported path.
 - There is no annotation editor, and no recording.
 - Not verified on a machine that is not the development machine.
 
@@ -105,6 +103,7 @@ menus, not the line.
 - [x] `Ctrl+Alt+H` captures a region, `Ctrl+Alt+Shift+H` the whole screen
 - [x] The result is on the line and on the clipboard
 - [x] Click copies, ✕ discards, ☆ pins
+- [x] A photo drags out to another application as a real file
 - [x] The line persists across restarts
 - [x] The line drops and retracts on pointer movement
 - [x] The window is click-through away from the photos
