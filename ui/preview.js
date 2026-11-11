@@ -111,12 +111,10 @@ btnOcr.addEventListener("click", async () => {
     btnOcr.classList.remove("loading");
     ocrLabel.textContent = isZh ? "提取文字" : "Extract";
 
-    if (res.has_qr || (res.text && res.text.trim())) {
+    if (res.text && res.text.trim()) {
       await invoke("open_ocr_window", { result: res });
     } else {
-      showToast(
-        isZh ? "未识别到文字或二维码" : "No text or QR code detected",
-      );
+      showToast(isZh ? "未识别到文字" : "No text detected");
     }
   } catch (err) {
     btnOcr.classList.remove("loading");

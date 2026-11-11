@@ -1,7 +1,6 @@
-//! Offline OCR and QR Code Recognition for Hangboard.
+//! Offline OCR Text Recognition for Hangboard.
 //!
-//! Uses Windows 10/11 native `Windows.Media.Ocr` engine (zero extra runtime bloat)
-//! and pure-Rust `rqrr` for lightning-fast QR code detection.
+//! Uses Windows 10/11 native `Windows.Media.Ocr` engine (zero extra runtime bloat).
 
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -10,40 +9,6 @@ use std::path::Path;
 pub struct RecognizeResult {
     /// Full recognized OCR text, if any.
     pub text: String,
-    /// Detected QR code contents (URLs or text).
-    pub qr_codes: Vec<String>,
-    /// Whether any QR code was found.
-    pub has_qr: bool,
-    /// Primary text to copy to clipboard (prefers QR content if present, else OCR text).
-    pub primary_text: String,
-    /// Whether primary text is a web URL.
-    pub is_url: bool,
-}
-
-/// Detects QR code(s) from an image file using `rqrr`.
-pub fn detect_qr_from_path(path: &Path) -> Vec<String> {
-    let Ok(img) = image::open(path) else {
-        return Vec::new();
-    };
-    detect_qr_from_image(&img)
-}
-
-/// Detects QR code(s) from a loaded dynamic image.
-pub fn detect_qr_from_image(img: &image::DynamicImage) -> Vec<String> {
-    let luma = img.to_luma8();
-    let mut prepared = rqrr::PreparedImage::prepare(luma);
-    let grids = prepared.detect_grids();
-    let mut results = Vec::new();
-
-    for grid in grids {
-        if let Ok((_meta, content)) = grid.decode() {
-            if !content.trim().is_empty() {
-                results.push(content);
-            }
-        }
-    }
-
-    results
 }
 
 #[cfg(windows)]
@@ -126,30 +91,13 @@ pub mod win_ocr {
     }
 }
 
-/// Combined OCR and QR recognition on an image file.
+/// Offline OCR text recognition on an image file.
 pub async fn recognize_file(path: &Path) -> Result<RecognizeResult, String> {
-    let qr_codes = detect_qr_from_path(path);
-    let ocr_text = win_ocr::recognize_text_from_path(path)
+    let text = win_ocr::recognize_text_from_path(path)
         .await
         .unwrap_or_default();
 
-    let has_qr = !qr_codes.is_empty();
-    let primary_text = if has_qr {
-        qr_codes[0].clone()
-    } else {
-        ocr_text.clone()
-    };
-
-    let trimmed = primary_text.trim();
-    let is_url = trimmed.starts_with("http://") || trimmed.starts_with("https://");
-
-    Ok(RecognizeResult {
-        text: ocr_text,
-        qr_codes,
-        has_qr,
-        primary_text,
-        is_url,
-    })
+    Ok(RecognizeResult { text })
 }
 
 #[cfg(test)]
@@ -169,12 +117,5 @@ mod tests {
         println!("OCR result on synthetic image: {:?}", res);
 
         let _ = std::fs::remove_file(temp);
-    }
-
-    #[test]
-    fn test_qr_empty_on_blank_image() {
-        let img = image::DynamicImage::ImageRgb8(image::RgbImage::new(100, 100));
-        let qrs = detect_qr_from_image(&img);
-        assert!(qrs.is_empty());
     }
 }

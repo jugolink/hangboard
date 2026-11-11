@@ -404,12 +404,10 @@ async function boot() {
     if (!card) return;
     const isZh = currentLang === "zh-CN";
     let text = "";
-    if (result.has_qr) {
-      text = isZh ? "✓ 已识别二维码" : "✓ QR Copied";
-    } else if (result.text && result.text.trim()) {
+    if (result.text && result.text.trim()) {
       text = isZh ? "✓ 已提取文字" : "✓ Text Copied";
     } else {
-      text = isZh ? "未识别到内容" : "No Content";
+      text = isZh ? "未识别到文字" : "No Text Detected";
     }
     showCardFeedback(card, text);
   });

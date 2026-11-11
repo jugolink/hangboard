@@ -478,14 +478,11 @@ pub async fn context_ocr(
         .await
         .map_err(|e| format!("Recognition failed: {e}"))?;
 
-    if !result.primary_text.trim().is_empty() {
+    if !result.text.trim().is_empty() {
         if let Ok(mut clipboard) = arboard::Clipboard::new() {
             crate::clipboard::mark_own_write();
-            let _ = clipboard.set_text(result.primary_text.clone());
+            let _ = clipboard.set_text(result.text.clone());
         }
-    }
-
-    if result.has_qr || !result.text.trim().is_empty() {
         let _ = open_ocr_window(app.clone(), result.clone());
     } else {
         let _ = app.emit(
@@ -764,10 +761,10 @@ pub async fn recognize_image(
         .await
         .map_err(|e| format!("Recognition failed: {e}"))?;
 
-    if !result.primary_text.trim().is_empty() {
+    if !result.text.trim().is_empty() {
         if let Ok(mut clipboard) = arboard::Clipboard::new() {
             crate::clipboard::mark_own_write();
-            let _ = clipboard.set_text(result.primary_text.clone());
+            let _ = clipboard.set_text(result.text.clone());
         }
     }
 
@@ -791,13 +788,4 @@ pub fn close_ocr_window(app: AppHandle) -> Result<(), String> {
         let _ = win.hide();
     }
     Ok(())
-}
-
-#[tauri::command]
-pub fn open_url(url: String) -> CmdResult<()> {
-    let trimmed = url.trim();
-    if !trimmed.starts_with("http://") && !trimmed.starts_with("https://") {
-        return Err("Only http and https URLs can be opened".to_string());
-    }
-    open_path(trimmed)
 }

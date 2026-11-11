@@ -1,4 +1,4 @@
-/* OCR & QR Result Window Styles */
+/* OCR Text Result Window Styles */
 
 * {
   box-sizing: border-box;
@@ -85,7 +85,7 @@ body {
   transform: scale(1.05);
 }
 
-/* ---- Content & Sections ------------------------------------------------- */
+/* ---- Content ------------------------------------------------------------ */
 #content {
   flex: 1;
   padding: 16px 20px;
@@ -93,7 +93,6 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 
 #content::-webkit-scrollbar {
@@ -113,6 +112,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1;
 }
 
 .section-header {
@@ -127,21 +127,12 @@ body {
   gap: 8px;
 }
 
-.badge {
+.badge-ocr {
   padding: 2px 8px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.3px;
-}
-
-.badge-qr {
-  background: rgba(10, 132, 255, 0.22);
-  color: #5ac8fa;
-  border: 1px solid rgba(10, 132, 255, 0.35);
-}
-
-.badge-ocr {
   background: rgba(52, 199, 89, 0.22);
   color: #4cd964;
   border: 1px solid rgba(52, 199, 89, 0.35);
@@ -164,58 +155,26 @@ body {
   color: rgba(255, 255, 255, 0.6);
 }
 
-/* ---- QR Code elements --------------------------------------------------- */
-.security-warning {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: rgba(255, 159, 10, 0.12);
-  border: 1px solid rgba(255, 159, 10, 0.3);
-  color: #ffd60a;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.url-display,
-.text-display {
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  font-family: Consolas, "Cascadia Code", monospace;
-  font-size: 12px;
-  color: #64d2ff;
-  word-break: break-all;
-  user-select: text;
-  -webkit-user-select: text;
-  max-height: 90px;
-  overflow-y: auto;
-}
-
-.text-display {
-  color: #e5e5ea;
-}
-
 /* ---- Textarea Editor ---------------------------------------------------- */
 .editor-wrapper {
   position: relative;
   width: 100%;
+  flex: 1;
+  display: flex;
 }
 
 #ocr-editor {
   width: 100%;
-  height: 140px;
-  padding: 10px 12px;
+  height: 100%;
+  min-height: 220px;
+  padding: 12px 14px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #f5f5f7;
   font-size: 13px;
-  line-height: 1.5;
-  resize: vertical;
+  line-height: 1.6;
+  resize: none;
   user-select: text;
   -webkit-user-select: text;
   font-family: inherit;
@@ -240,7 +199,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 7px 16px;
   border-radius: 8px;
   border: none;
   font-size: 12px;
@@ -266,25 +225,6 @@ body {
   background: #0071e3;
 }
 
-.btn-warning {
-  background: #ff9f0a;
-  color: #1c1c1e;
-  font-weight: 600;
-}
-
-.btn-warning:hover {
-  background: #ffb340;
-}
-
-.btn-danger {
-  background: #ff453a;
-  color: #fff;
-}
-
-.btn-danger:hover {
-  background: #d32f2f;
-}
-
 .btn-secondary {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.9);
@@ -301,12 +241,12 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 30px 10px;
-  gap: 10px;
+  padding: 40px 10px;
+  gap: 12px;
 }
 
 .empty-icon {
-  font-size: 32px;
+  font-size: 36px;
   opacity: 0.6;
 }
 
@@ -330,94 +270,6 @@ body {
 .esc-hint {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.4);
-}
-
-/* ---- Modal Dialog ------------------------------------------------------- */
-.modal-backdrop {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  transition: opacity 150ms ease;
-}
-
-.modal-dialog {
-  width: 90%;
-  max-width: 400px;
-  background: rgba(30, 34, 44, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  padding: 18px 20px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  animation: pop-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes pop-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #ffd60a;
-}
-
-.modal-body {
-  font-size: 12px;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.85);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.modal-url {
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.4);
-  font-family: Consolas, monospace;
-  font-size: 11px;
-  color: #64d2ff;
-  word-break: break-all;
-  user-select: text;
-  -webkit-user-select: text;
-  max-height: 70px;
-  overflow-y: auto;
-}
-
-.modal-caution {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0;
-}
-
-.modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 4px;
 }
 
 /* ---- Toast Notification ------------------------------------------------- */

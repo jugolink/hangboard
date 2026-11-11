@@ -2,60 +2,22 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <title>Hangboard - 识别结果</title>
+    <title>Hangboard - 文字提取与编辑</title>
     <link rel="stylesheet" href="ocr.css" />
   </head>
   <body>
     <div id="container">
       <header id="titlebar" data-tauri-drag-region>
-        <div id="title-text" data-tauri-drag-region>识别结果</div>
+        <div id="title-text" data-tauri-drag-region>文字提取</div>
         <button id="btn-close-title" aria-label="Close">✕</button>
       </header>
 
       <main id="content">
-        <!-- QR Code Result Section -->
-        <section id="section-qr" class="group hidden">
-          <div class="section-header">
-            <span class="badge badge-qr" id="badge-qr">二维码</span>
-            <span class="group-title" id="title-qr">识别到二维码</span>
-          </div>
-
-          <!-- URL Presentation -->
-          <div id="qr-url-box" class="qr-content-box hidden">
-            <div class="security-warning" id="sec-warning">
-              <span class="warn-icon">⚠️</span>
-              <span id="warn-text">安全提示：打开外部未知链接可能存在风险，请核实后再访问。</span>
-            </div>
-            <div class="url-display" id="url-text"></div>
-            <div class="row-actions">
-              <button id="btn-open-url" class="btn btn-warning">
-                <span class="icon">↗</span>
-                <span id="lbl-open-url">打开链接 (需确认)</span>
-              </button>
-              <button id="btn-copy-url" class="btn btn-secondary">
-                <span class="icon">⧉</span>
-                <span id="lbl-copy-url">复制链接</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Text QR Presentation -->
-          <div id="qr-text-box" class="qr-content-box hidden">
-            <div class="text-display" id="qr-plain-text"></div>
-            <div class="row-actions">
-              <button id="btn-copy-qr-text" class="btn btn-secondary">
-                <span class="icon">⧉</span>
-                <span id="lbl-copy-qr-text">复制内容</span>
-              </button>
-            </div>
-          </div>
-        </section>
-
         <!-- OCR Text Result Section -->
-        <section id="section-ocr" class="group hidden">
+        <section id="section-ocr" class="group">
           <div class="section-header">
             <div class="header-left">
-              <span class="badge badge-ocr" id="badge-ocr">文字</span>
+              <span class="badge badge-ocr" id="badge-ocr">OCR</span>
               <span class="group-title" id="title-ocr">提取的文字内容</span>
             </div>
             <span class="char-stat" id="char-stat">共 0 字</span>
@@ -72,7 +34,7 @@
           <div class="row-actions">
             <button id="btn-copy-text" class="btn btn-primary">
               <span class="icon">✓</span>
-              <span id="lbl-copy-text">复制编辑后的文字</span>
+              <span id="lbl-copy-text">复制文字到剪贴板</span>
             </button>
             <button id="btn-clear-text" class="btn btn-secondary">
               <span id="lbl-clear-text">清空</span>
@@ -84,7 +46,7 @@
         <section id="section-empty" class="group hidden">
           <div class="empty-state">
             <div class="empty-icon">🔍</div>
-            <div class="empty-text" id="empty-text">未在此图片中识别到任何文字或二维码</div>
+            <div class="empty-text" id="empty-text">未在此图片中识别到任何文字</div>
           </div>
         </section>
       </main>
@@ -99,29 +61,6 @@
           </button>
         </div>
       </footer>
-
-      <!-- Confirmation Modal Dialog for opening URLs safely -->
-      <div id="confirm-modal" class="modal-backdrop hidden">
-        <div class="modal-dialog">
-          <div class="modal-header">
-            <span class="warn-icon">⚠️</span>
-            <span class="modal-title" id="modal-title">安全确认</span>
-          </div>
-          <div class="modal-body">
-            <p id="modal-desc">即将使用系统默认浏览器打开以下链接：</p>
-            <div class="modal-url" id="modal-target-url"></div>
-            <p class="modal-caution" id="modal-caution">请确认此链接来自可信任来源，谨防恶意网站。</p>
-          </div>
-          <div class="modal-footer">
-            <button id="btn-confirm-open" class="btn btn-danger">
-              <span id="lbl-confirm-open">确认打开</span>
-            </button>
-            <button id="btn-confirm-cancel" class="btn btn-secondary">
-              <span id="lbl-confirm-cancel">取消</span>
-            </button>
-          </div>
-        </div>
-      </div>
 
       <!-- Feedback Toast -->
       <div id="toast" class="toast hidden"></div>
