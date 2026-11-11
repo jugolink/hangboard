@@ -53,6 +53,36 @@ pub fn set_dragging(state: State<'_, AppState>, dragging: bool) {
 }
 
 #[tauri::command]
+pub fn start_card_drag(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    let (path, window) = {
+        let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+        let path = inner
+            .items
+            .iter()
+            .find(|it| it.id == id)
+            .map(|it| it.path.clone())
+            .ok_or_else(|| format!("Item not found: {id}"))?;
+        inner.dragging = true;
+        let line_win = app.get_webview_window("line");
+        (path, line_win)
+    };
+
+    let app_handle = app.clone();
+    app.run_on_main_thread(move || {
+        let hwnd = window.and_then(|w| w.hwnd().ok()).map(|h| h.0 as isize);
+        let _ = crate::drag::imp::start_drag_file(std::path::Path::new(&path), hwnd);
+        if let Some(st) = app_handle.try_state::<AppState>() {
+            if let Ok(mut inner) = st.inner.lock() {
+                inner.dragging = false;
+            }
+        }
+    })
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn copy_item(state: State<'_, AppState>, id: String) -> CmdResult<()> {
     let item = {
         let inner = state.inner.lock().map_err(|e| e.to_string())?;

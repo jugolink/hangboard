@@ -98,6 +98,8 @@ body {
   position: absolute;
   top: 0;
   left: 0;
+  user-select: none;
+  cursor: grab;
   padding: 4px;
   border-radius: 16px;
   background: linear-gradient(
@@ -130,6 +132,10 @@ body {
     inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
     inset 0 -0.5px 0 rgba(0, 0, 0, 0.1),
     0 8px 14px rgba(0, 0, 0, 0.26);
+}
+
+.card:active {
+  cursor: grabbing;
 }
 
 .card img {

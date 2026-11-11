@@ -58,6 +58,14 @@ photo.addEventListener("load", () => {
   }
 });
 
+photo.draggable = true;
+photo.addEventListener("dragstart", (e) => {
+  e.preventDefault();
+  if (currentItemId) {
+    void invoke("start_card_drag", { id: currentItemId });
+  }
+});
+
 async function step(delta) {
   await invoke("step_preview", { delta });
   await refresh();

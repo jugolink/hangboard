@@ -21,6 +21,8 @@ down, holding your recent screenshots like photos on a clothesline.
 - **Click a photo** — copy it to the clipboard.
 - **Double-click a photo** — open the centred lightbox preview.
 - **Right-click a photo** — the context menu: copy, open, reveal, export, discard.
+- **Drag a photo out** — a native OLE drag, so the file lands in Explorer, WeChat,
+  QQ, Feishu, Word, Photoshop or VS Code. The lightbox preview drags out too.
 - **✕ on a photo** — take it down.
 - **☆ on a photo** — pin it, so it is the last to fall when the line fills up.
 

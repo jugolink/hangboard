@@ -16,6 +16,7 @@ pub mod autostart;
 pub mod capture;
 pub mod clipboard;
 pub mod commands;
+pub mod drag;
 pub mod hover;
 pub mod line;
 pub mod settings;
@@ -417,6 +418,7 @@ pub fn run() {
             commands::set_scale,
             commands::set_hit_rects,
             commands::set_dragging,
+            commands::start_card_drag,
             commands::copy_item,
             commands::discard_item,
             commands::pin_item,
