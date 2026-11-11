@@ -299,7 +299,7 @@ document.getElementById("btn-reset").addEventListener("click", () => {
   hotkeys.whole = "control+alt+shift+KeyH";
   renderHotkeys();
   document.getElementById("chk-clipboard").checked = true;
-  document.getElementById("chk-hover").checked = true;
+  document.getElementById("chk-hover").checked = false;
   document.getElementById("chk-reveal-new").checked = true;
   document.getElementById("chk-sounds").checked = false;
   document.getElementById("chk-autostart").checked = false;

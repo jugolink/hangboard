@@ -195,11 +195,13 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     let preview_profile = profile_base.join("preview");
     let context_profile = profile_base.join("context");
     let settings_profile = profile_base.join("settings");
+    let ocr_profile = profile_base.join("ocr");
     let _ = std::fs::create_dir_all(&line_profile);
     let _ = std::fs::create_dir_all(&overlay_profile);
     let _ = std::fs::create_dir_all(&preview_profile);
     let _ = std::fs::create_dir_all(&context_profile);
     let _ = std::fs::create_dir_all(&settings_profile);
+    let _ = std::fs::create_dir_all(&ocr_profile);
 
     WebviewWindowBuilder::new(app, "line", WebviewUrl::App("index.html".into()))
         .data_directory(line_profile)
@@ -268,7 +270,7 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
     WebviewWindowBuilder::new(app, "context", WebviewUrl::App("context.html".into()))
         .data_directory(context_profile)
         .title("Hangboard menu")
-        .inner_size(224.0, 320.0)
+        .inner_size(224.0, 350.0)
         .decorations(false)
         .transparent(true)
         .shadow(false)
@@ -291,6 +293,21 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
         .skip_taskbar(false)
         .always_on_top(true)
         .focused(false)
+        .visible(false)
+        .build()?;
+
+    WebviewWindowBuilder::new(app, "ocr", WebviewUrl::App("ocr.html".into()))
+        .data_directory(ocr_profile)
+        .title("Hangboard OCR")
+        .inner_size(520.0, 520.0)
+        .center()
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .resizable(true)
+        .skip_taskbar(false)
+        .always_on_top(true)
+        .focused(true)
         .visible(false)
         .build()?;
 

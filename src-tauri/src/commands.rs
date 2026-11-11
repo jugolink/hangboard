@@ -455,6 +455,48 @@ pub fn context_preview(app: AppHandle, state: State<'_, AppState>) -> CmdResult<
     open_preview(app, state, id)
 }
 
+/// Extract text or QR code from the context item, copy to clipboard, and emit event.
+#[tauri::command]
+pub async fn context_ocr(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> CmdResult<crate::ocr::RecognizeResult> {
+    let (id, path) = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        let id = inner.context_id.clone().ok_or("no context item")?;
+        let item = inner
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .ok_or("no such item")?;
+        (id, std::path::PathBuf::from(&item.path))
+    };
+
+    close_context(app.clone(), state.clone())?;
+
+    let result = crate::ocr::recognize_file(&path)
+        .await
+        .map_err(|e| format!("Recognition failed: {e}"))?;
+
+    if !result.text.trim().is_empty() {
+        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+            crate::clipboard::mark_own_write();
+            let _ = clipboard.set_text(result.text.clone());
+        }
+        let _ = open_ocr_window(app.clone(), result.clone());
+    } else {
+        let _ = app.emit(
+            "ocr:result",
+            serde_json::json!({
+                "id": id,
+                "result": &result,
+            }),
+        );
+    }
+
+    Ok(result)
+}
+
 /// Reveal the item in Explorer (selects it).
 #[tauri::command]
 pub fn context_reveal(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
@@ -697,5 +739,53 @@ pub fn open_settings_file(app: AppHandle) -> Result<(), String> {
     let path = root.join(crate::settings::SETTINGS_FILE);
     #[cfg(windows)]
     let _ = std::process::Command::new("notepad").arg(&path).spawn();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn recognize_image(
+    id: String,
+    state: State<'_, AppState>,
+) -> CmdResult<crate::ocr::RecognizeResult> {
+    let path = {
+        let inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner
+            .items
+            .iter()
+            .find(|i| i.id == id)
+            .map(|i| std::path::PathBuf::from(&i.path))
+            .ok_or_else(|| format!("Item not found: {id}"))?
+    };
+
+    let result = crate::ocr::recognize_file(&path)
+        .await
+        .map_err(|e| format!("Recognition failed: {e}"))?;
+
+    if !result.text.trim().is_empty() {
+        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+            crate::clipboard::mark_own_write();
+            let _ = clipboard.set_text(result.text.clone());
+        }
+    }
+
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn open_ocr_window(app: AppHandle, result: crate::ocr::RecognizeResult) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("ocr") {
+        let _ = win.center();
+        let _ = win.show();
+        let _ = win.set_focus();
+        let _ = win.emit("ocr:display", result);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_ocr_window(app: AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("ocr") {
+        let _ = win.hide();
+    }
     Ok(())
 }

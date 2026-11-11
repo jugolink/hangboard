@@ -21,6 +21,7 @@ down, holding your recent screenshots like photos on a clothesline.
 - **Click a photo** — copy it to the clipboard.
 - **Double-click a photo** — open the centred lightbox preview.
 - **Right-click a photo** — the context menu: copy, open, reveal, export, discard.
+- **Extract text (OCR)** — extract text directly from the context menu or lightbox preview; automatically copies to clipboard and opens an edit window for adjustments.
 - **Drag a photo out** — a native OLE drag, so the file lands in Explorer, WeChat,
   QQ, Feishu, Word, Photoshop or VS Code. The lightbox preview drags out too.
 - **✕ on a photo** — take it down.
@@ -81,6 +82,7 @@ src-tauri/src/
   state.rs      shared state and the geometry constants
   settings.rs   settings.json, defaults, load/save
   tray.rs       the tray icon, its menu, and the localised labels
+  ocr.rs        Windows WinRT native OCR text recognition
   clipboard.rs  polls the Windows clipboard for new images
   autostart.rs  the "open at login" registry entry
 ui/
@@ -89,6 +91,7 @@ ui/
   preview.html  the centred lightbox preview
   context.html  the per-photo context menu
   settings.html the settings panel
+  ocr.html      the OCR text result and editing window
 docs/
   SPEC.md       what v0.1 does and does not do
   adr/          why the load-bearing decisions went the way they did

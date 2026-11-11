@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hangboard - 文字提取与编辑</title>
+    <link rel="stylesheet" href="ocr.css" />
+  </head>
+  <body>
+    <div id="container">
+      <header id="titlebar" data-tauri-drag-region>
+        <div id="title-text" data-tauri-drag-region>文字提取</div>
+        <button id="btn-close-title" aria-label="Close">✕</button>
+      </header>
+
+      <main id="content">
+        <!-- OCR Text Result Section -->
+        <section id="section-ocr" class="group">
+          <div class="section-header">
+            <div class="header-left">
+              <span class="badge badge-ocr" id="badge-ocr">OCR</span>
+              <span class="group-title" id="title-ocr">提取的文字内容</span>
+            </div>
+            <span class="char-stat" id="char-stat">共 0 字</span>
+          </div>
+
+          <div class="editor-desc" id="editor-desc">
+            您可以在下方直接编辑、修改或追加内容：
+          </div>
+
+          <div class="editor-wrapper">
+            <textarea id="ocr-editor" placeholder="在此编辑文字..." spellcheck="false"></textarea>
+          </div>
+
+          <div class="row-actions">
+            <button id="btn-copy-text" class="btn btn-primary">
+              <span class="icon">✓</span>
+              <span id="lbl-copy-text">复制文字到剪贴板</span>
+            </button>
+            <button id="btn-clear-text" class="btn btn-secondary">
+              <span id="lbl-clear-text">清空</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Empty fallback section -->
+        <section id="section-empty" class="group hidden">
+          <div class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <div class="empty-text" id="empty-text">未在此图片中识别到任何文字</div>
+          </div>
+        </section>
+      </main>
+
+      <footer id="footer">
+        <div class="footer-left">
+          <span class="esc-hint" id="esc-hint">Esc 退出</span>
+        </div>
+        <div class="footer-actions">
+          <button id="btn-close-footer" class="btn btn-secondary">
+            <span id="lbl-close">关闭</span>
+          </button>
+        </div>
+      </footer>
+
+      <!-- Feedback Toast -->
+      <div id="toast" class="toast hidden"></div>
+    </div>
+
+    <script src="ocr.js"></script>
+  </body>
+</html>

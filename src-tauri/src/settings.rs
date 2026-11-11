@@ -57,7 +57,7 @@ impl Default for Settings {
             export_dir: None,
             keep_on_line: None,
             reveal_on_new: true,
-            reveal_on_hover: true,
+            reveal_on_hover: false,
             reveal_over_fullscreen: false,
             sounds: false,
             language: "zh-CN".into(),
@@ -109,10 +109,9 @@ mod tests {
         assert!(s.export_dir.is_none());
         assert!(s.keep_on_line.is_none());
         assert!(s.reveal_on_new);
-        assert!(s.reveal_on_hover);
+        assert!(!s.reveal_on_hover);
         assert!(!s.reveal_over_fullscreen);
         assert!(!s.sounds);
-        assert_eq!(s.language, "zh-CN");
         assert_eq!(s.language, "zh-CN");
     }
 
@@ -151,7 +150,7 @@ mod tests {
         assert!(s.export_dir.is_none());
         assert!(s.keep_on_line.is_none());
         assert!(s.reveal_on_new);
-        assert!(s.reveal_on_hover);
+        assert!(!s.reveal_on_hover);
         assert!(!s.reveal_over_fullscreen);
         assert!(!s.sounds);
         assert_eq!(s.language, "zh-CN");

@@ -23,6 +23,10 @@
       <div id="bottom-bar">
         <div id="counter"></div>
         <div class="actions">
+          <button id="btn-ocr" title="提取文字">
+            <span class="icon">🔍</span>
+            <span id="ocr-label">提取文字</span>
+          </button>
           <button id="btn-copy">
             <span class="icon">⧉</span>
             <span id="copy-label">复制</span>
@@ -34,6 +38,7 @@
         </div>
         <div id="hint-key">Esc 退出 · ← → 切换</div>
       </div>
+      <div id="toast" class="toast hidden"></div>
     </div>
 
     <script src="preview.js"></script>

@@ -216,3 +216,48 @@ body {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.4);
 }
+
+.actions button.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.toast {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(28, 30, 38, 0.92);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    inset 0 0.8px 0 rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 200;
+  transition: all 200ms ease;
+  pointer-events: auto;
+  max-width: 80%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toast.link-toast {
+  cursor: pointer;
+  color: #64d2ff;
+}
+
+.toast.hidden {
+  opacity: 0;
+  transform: translate(-50%, -10px);
+  pointer-events: none;
+}
+
