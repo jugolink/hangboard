@@ -86,6 +86,10 @@ pub fn create_menu(
 ) -> tauri::Result<Menu<tauri::Wry>> {
     let tr = I18n::new(&settings.language);
 
+    let version_str = format!("Hangboard v{}", app.package_info().version);
+    let app_version = MenuItem::with_id(app, "app_version", &version_str, false, None::<&str>)?;
+    let sep0 = PredefinedMenuItem::separator(app)?;
+
     let show_hide = CheckMenuItem::with_id(
         app,
         "toggle_line",
@@ -128,6 +132,8 @@ pub fn create_menu(
     Menu::with_items(
         app,
         &[
+            &app_version,
+            &sep0,
             &show_hide,
             &take_down,
             &sep1,

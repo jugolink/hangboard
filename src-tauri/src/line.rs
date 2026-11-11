@@ -237,6 +237,59 @@ pub fn drop_overflow(items: &[Item], cap: u32) -> Vec<String> {
     drop
 }
 
+/// Migrate existing screenshots from `old_dir` to `new_dir`, updating item paths.
+pub fn migrate_shots(old_dir: &Path, new_dir: &Path, items: &mut [Item]) -> Result<(), String> {
+    if old_dir == new_dir {
+        return Ok(());
+    }
+
+    std::fs::create_dir_all(new_dir)
+        .map_err(|e| format!("Failed to create new screenshot directory: {e}"))?;
+
+    // Two phases: copy everything first, then drop the sources. A failure
+    // halfway through the copy then leaves the old directory untouched
+    // instead of splitting the library across two folders, which would look
+    // like data loss to the user.
+    let mut copied: Vec<std::path::PathBuf> = Vec::new();
+    if old_dir.exists() {
+        let entries = std::fs::read_dir(old_dir)
+            .map_err(|e| format!("Failed to read the current screenshot directory: {e}"))?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let file_name = entry.file_name();
+            let target_path = new_dir.join(&file_name);
+            if path == target_path {
+                continue;
+            }
+            std::fs::copy(&path, &target_path).map_err(|e| {
+                format!("Failed to copy {file_name:?} to the new screenshot directory: {e}")
+            })?;
+            copied.push(path);
+        }
+    }
+
+    for path in copied {
+        let _ = std::fs::remove_file(path);
+    }
+
+    // Only repoint items whose file actually made it across. An item left
+    // pointing at a file that is not there disappears from the line on the
+    // next load.
+    for item in items {
+        if let Some(file_name) = Path::new(&item.path).file_name() {
+            let target = new_dir.join(file_name);
+            if target.exists() {
+                item.path = target.to_string_lossy().to_string();
+            }
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -374,5 +427,25 @@ mod tests {
         ];
         // cap 1: keep the newest unpinned (a); drop c then e (newest-first).
         assert_eq!(drop_overflow(&items, 1), vec!["c", "e"]);
+    }
+
+    #[test]
+    fn migrate_shots_moves_files_and_updates_paths() {
+        let old_dir = scratch("migrate-old");
+        let new_dir = scratch("migrate-new");
+        let item = ingest(img(10, 10), &old_dir, 1, 100).unwrap();
+        assert!(Path::new(&item.path).exists());
+
+        let mut items = vec![item.clone()];
+        migrate_shots(&old_dir, &new_dir, &mut items).unwrap();
+
+        assert!(!Path::new(&item.path).exists(), "old file should be moved");
+        assert!(Path::new(&items[0].path).exists(), "new file should exist");
+        assert_eq!(
+            Path::new(&items[0].path).parent().unwrap(),
+            new_dir.as_path()
+        );
+        let _ = std::fs::remove_dir_all(&old_dir);
+        let _ = std::fs::remove_dir_all(&new_dir);
     }
 }

@@ -21,7 +21,7 @@ paste.
 
 | Behaviour | Detail |
 | --- | --- |
-| Show the line | Pointer rests in the hot band of the top edge for 250 ms. |
+| Show the line | Pointer rests in the hot band of the top edge for 250 ms. Off by default; the tray menu pins the line open, and a new photo reveals it for 3 s. |
 | Hide the line | Pointer leaves the line and the photos for 500 ms. |
 | Capture a region | `Ctrl+Alt+H`, drag a rectangle, release. |
 | Capture everything | `Ctrl+Alt+Shift+H`. |

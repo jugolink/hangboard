@@ -260,20 +260,58 @@ pub fn take_everything_down(app: &AppHandle) -> Result<(), String> {
 
 /// A short, system-chosen chime. Only when `settings.sounds` is on.
 #[cfg(windows)]
-fn beep() {
+pub fn beep() {
+    #[link(name = "winmm")]
+    extern "system" {
+        fn PlaySoundW(psz_sound: *const u16, hmod: *mut core::ffi::c_void, fdw_sound: u32) -> i32;
+    }
     #[link(name = "user32")]
     extern "system" {
         #[link_name = "MessageBeep"]
         fn message_beep(u_type: u32) -> i32;
     }
-    // MB_ICONASTERISK: a light, non-alarming chime.
-    unsafe {
-        message_beep(0x0000_0040);
+
+    let candidates = [
+        r"C:\Windows\Media\Windows Notify System Generic.wav",
+        r"C:\Windows\Media\Windows Ding.wav",
+        r"C:\Windows\Media\notify.wav",
+    ];
+
+    let mut played = false;
+    for path in candidates {
+        if std::path::Path::new(path).exists() {
+            let wide: Vec<u16> = path.encode_utf16().chain(std::iter::once(0)).collect();
+            unsafe {
+                // SND_FILENAME = 0x00020000, SND_ASYNC = 0x0001, SND_NODEFAULT = 0x0002
+                if PlaySoundW(
+                    wide.as_ptr(),
+                    std::ptr::null_mut(),
+                    0x0002_0000 | 0x0001 | 0x0002,
+                ) != 0
+                {
+                    played = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if !played {
+        // SND_ALIAS = 0x00010000, SND_ASYNC = 0x0001
+        let alias: Vec<u16> = "SystemAsterisk"
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        unsafe {
+            if PlaySoundW(alias.as_ptr(), std::ptr::null_mut(), 0x0001_0000 | 0x0001) == 0 {
+                message_beep(0x0000_0040);
+            }
+        }
     }
 }
 
 #[cfg(not(windows))]
-fn beep() {}
+pub fn beep() {}
 
 /// Register the region/full-screen hotkeys from `settings`.
 ///
@@ -450,6 +488,8 @@ pub fn run() {
             commands::check_shortcut,
             commands::get_settings,
             commands::save_settings,
+            commands::select_data_dir,
+            commands::get_default_data_dir,
             commands::open_settings_window,
             commands::close_settings_window,
             commands::open_settings_file,

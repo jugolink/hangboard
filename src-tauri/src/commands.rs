@@ -224,23 +224,13 @@ pub fn finish_capture(
     rect: (f64, f64, f64, f64),
 ) -> CmdResult<()> {
     let buf = {
-        let inner = state.inner.lock().map_err(|e| e.to_string())?;
-        inner.capture.clone().ok_or("no capture in flight")?
+        let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+        inner.capture.take().ok_or("no capture in flight")?
     };
     let factor = factor_of(&app).unwrap_or(1.0);
 
     let img = capture::crop(&buf, rect, factor).ok_or("empty selection")?;
-    let thumb_h = geometry(1.0).photo_max_height as u32;
-    let dir = crate::shots_dir(&app)?;
-    let item = line::ingest(img, &dir, crate::now_millis(), thumb_h)?;
-
-    {
-        let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
-        inner.capture = None;
-        inner.items.push(item.clone());
-        // Newest first, matching how the line reads left to right.
-        inner.items.sort_by_key(|a| std::cmp::Reverse(a.added_at));
-    }
+    let item = crate::hang(&app, img)?;
 
     // A screenshot people expect to paste right away.
     let _ = line::copy_to_clipboard(&item);
@@ -252,8 +242,6 @@ pub fn finish_capture(
         let _ = line.show();
     }
 
-    crate::persist(&app);
-    crate::emit_items(&app);
     crate::reveal_on_new(&app);
     Ok(())
 }
@@ -455,7 +443,8 @@ pub fn context_preview(app: AppHandle, state: State<'_, AppState>) -> CmdResult<
     open_preview(app, state, id)
 }
 
-/// Extract text or QR code from the context item, copy to clipboard, and emit event.
+/// Extract text from the context item, copy it to the clipboard, and emit the
+/// result so the line can show a bubble on the card.
 #[tauri::command]
 pub async fn context_ocr(
     app: AppHandle,
@@ -697,14 +686,104 @@ pub fn get_settings(app: AppHandle) -> Result<crate::settings::Settings, String>
 #[tauri::command]
 pub fn save_settings(
     app: AppHandle,
+    state: State<'_, AppState>,
     new_settings: crate::settings::Settings,
 ) -> Result<(), String> {
     let root = crate::data_root(&app)?;
+    let current = crate::settings::Settings::load(&root);
+
+    let old_dir = match &current.data_dir {
+        Some(d) if !d.trim().is_empty() => std::path::PathBuf::from(d),
+        _ => root.join(crate::line::SHOTS_DIR),
+    };
+
+    let new_dir = match &new_settings.data_dir {
+        Some(d) if !d.trim().is_empty() => std::path::PathBuf::from(d),
+        _ => root.join(crate::line::SHOTS_DIR),
+    };
+
+    if old_dir != new_dir {
+        if let Ok(mut inner) = state.inner.lock() {
+            crate::line::migrate_shots(&old_dir, &new_dir, &mut inner.items)?;
+            crate::line::save_items(&root, &inner.items)?;
+        }
+        crate::emit_items(&app);
+    }
+
     new_settings.save(&root)?;
     crate::apply_settings(&app)?;
     let _ = crate::tray::rebuild_menu(&app);
     let _ = app.emit("app:language", &new_settings.language);
     Ok(())
+}
+
+#[tauri::command]
+pub fn select_data_dir(app: AppHandle) -> CmdResult<Option<String>> {
+    #[cfg(windows)]
+    {
+        use windows::core::HSTRING;
+        use windows::Win32::System::Com::{
+            CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_INPROC_SERVER,
+            COINIT_APARTMENTTHREADED,
+        };
+        use windows::Win32::UI::Shell::{
+            FileOpenDialog, IFileOpenDialog, FOS_PICKFOLDERS, SIGDN_FILESYSPATH,
+        };
+
+        let current_dir = crate::shots_dir(&app).ok();
+
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+
+            let dialog: IFileOpenDialog =
+                CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER)
+                    .map_err(|e| e.to_string())?;
+
+            let options = dialog.GetOptions().map_err(|e| e.to_string())?;
+            dialog
+                .SetOptions(options | FOS_PICKFOLDERS)
+                .map_err(|e| e.to_string())?;
+
+            if let Some(dir) = current_dir {
+                let hstr = HSTRING::from(dir.to_string_lossy().as_ref());
+                if let Ok(item) = windows::Win32::UI::Shell::SHCreateItemFromParsingName::<
+                    _,
+                    Option<&windows::Win32::System::Com::IBindCtx>,
+                    windows::Win32::UI::Shell::IShellItem,
+                >(&hstr, None)
+                {
+                    let _ = dialog.SetFolder(&item);
+                }
+            }
+
+            if dialog.Show(None).is_err() {
+                return Ok(None);
+            }
+
+            let result = dialog.GetResult().map_err(|e| e.to_string())?;
+            let display_name = result
+                .GetDisplayName(SIGDN_FILESYSPATH)
+                .map_err(|e| e.to_string())?;
+
+            let path_str = display_name.to_string().map_err(|e| e.to_string())?;
+            CoTaskMemFree(Some(display_name.as_ptr() as *const _));
+            Ok(Some(path_str))
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub fn get_default_data_dir(app: AppHandle) -> CmdResult<String> {
+    let root = crate::data_root(&app)?;
+    Ok(root
+        .join(crate::line::SHOTS_DIR)
+        .to_string_lossy()
+        .to_string())
 }
 
 #[tauri::command]
