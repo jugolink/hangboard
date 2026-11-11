@@ -56,9 +56,9 @@ impl Default for HoverState {
 
 /// Is the pointer in the reveal band of the monitor it is on?
 ///
-/// Only the middle third of the width counts: the left third belongs to the
-/// Start button and the right third to the tray, and hovering those should
-/// open their menus, not the line.
+/// Only the central 84% of the width counts: the outer 8% on each side
+/// belongs to the Start button and the tray, and hovering those should open
+/// their own menus, not the line.
 pub fn in_zone(px: f64, py: f64, mon: &tauri::Monitor) -> bool {
     let pos = mon.position();
     let size = mon.size();

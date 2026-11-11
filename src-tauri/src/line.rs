@@ -246,26 +246,44 @@ pub fn migrate_shots(old_dir: &Path, new_dir: &Path, items: &mut [Item]) -> Resu
     std::fs::create_dir_all(new_dir)
         .map_err(|e| format!("Failed to create new screenshot directory: {e}"))?;
 
+    // Two phases: copy everything first, then drop the sources. A failure
+    // halfway through the copy then leaves the old directory untouched
+    // instead of splitting the library across two folders, which would look
+    // like data loss to the user.
+    let mut copied: Vec<std::path::PathBuf> = Vec::new();
     if old_dir.exists() {
-        if let Ok(entries) = std::fs::read_dir(old_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file() {
-                    let file_name = entry.file_name();
-                    let target_path = new_dir.join(&file_name);
-                    if path != target_path {
-                        std::fs::copy(&path, &target_path)
-                            .map_err(|e| format!("Failed to migrate file {:?}: {e}", file_name))?;
-                        let _ = std::fs::remove_file(&path);
-                    }
-                }
+        let entries = std::fs::read_dir(old_dir)
+            .map_err(|e| format!("Failed to read the current screenshot directory: {e}"))?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
             }
+            let file_name = entry.file_name();
+            let target_path = new_dir.join(&file_name);
+            if path == target_path {
+                continue;
+            }
+            std::fs::copy(&path, &target_path).map_err(|e| {
+                format!("Failed to copy {file_name:?} to the new screenshot directory: {e}")
+            })?;
+            copied.push(path);
         }
     }
 
+    for path in copied {
+        let _ = std::fs::remove_file(path);
+    }
+
+    // Only repoint items whose file actually made it across. An item left
+    // pointing at a file that is not there disappears from the line on the
+    // next load.
     for item in items {
         if let Some(file_name) = Path::new(&item.path).file_name() {
-            item.path = new_dir.join(file_name).to_string_lossy().to_string();
+            let target = new_dir.join(file_name);
+            if target.exists() {
+                item.path = target.to_string_lossy().to_string();
+            }
         }
     }
 

@@ -443,7 +443,8 @@ pub fn context_preview(app: AppHandle, state: State<'_, AppState>) -> CmdResult<
     open_preview(app, state, id)
 }
 
-/// Extract text or QR code from the context item, copy to clipboard, and emit event.
+/// Extract text from the context item, copy it to the clipboard, and emit the
+/// result so the line can show a bubble on the card.
 #[tauri::command]
 pub async fn context_ocr(
     app: AppHandle,

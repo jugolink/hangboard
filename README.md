@@ -15,8 +15,11 @@ not the code.
 
 ## What it does
 
-Move the pointer to the middle of the top edge of the screen. A thin line drops
-down, holding your recent screenshots like photos on a clothesline.
+Take a screenshot and it hangs itself on the line for a moment, then tucks
+itself away. To bring the line back, hover the middle of the top edge of the
+screen (turn "Reveal on hover" on in the settings, or use the tray menu) — a
+thin line drops down, holding your recent screenshots like photos on a
+clothesline.
 
 - **`Ctrl+Alt+H`** — capture a region. Drag a rectangle, release.
 - **`Ctrl+Alt+Shift+H`** — capture the whole screen.
