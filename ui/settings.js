@@ -5,6 +5,8 @@ const { listen } = window.__TAURI__.event;
 
 let currentSettings = null;
 let recordingTarget = null; // 'region' | 'whole' | null
+let customDataDir = undefined; // undefined: unchanged, null: default, string: custom
+let defaultDataDir = "";
 
 // Raw accelerators currently held by the inputs
 let hotkeys = {
@@ -16,12 +18,15 @@ const I18N = {
   "zh-CN": {
     title: "偏好设置",
     secShortcuts: "快捷键配置",
-    shortcutsTip: "点击输入框后直接按下组合键（如 Ctrl + Alt + A）。",
     lblRegion: "区域截图",
     descRegion: "拖选矩形区域进行截图",
     lblWhole: "全屏截图",
     descWhole: "瞬间截取整个屏幕画面",
     secGeneral: "常规选项",
+    lblDataDir: "截图存储目录",
+    descDataDir: "修改保存位置将自动迁移已有截图",
+    btnBrowseDir: "📂 浏览…",
+    defaultDirNote: "(默认)",
     lblClipboard: "自动挂载剪贴板图片",
     descClipboard: "复制图片（包含第三方截图）时自动挂上晾衣绳",
     lblHover: "鼠标悬停展开",
@@ -47,18 +52,22 @@ const I18N = {
     btnReset: "恢复默认",
     btnSave: "保存更改",
     saved: "已保存!",
+    saving: "保存中…",
     pressKey: "请按下按键…",
     needModifier: "需包含 Ctrl / Alt / Shift 之一",
   },
   en: {
     title: "Preferences",
     secShortcuts: "Shortcuts",
-    shortcutsTip: "Click a box then press keys (e.g. Ctrl + Alt + A).",
     lblRegion: "Region Capture",
     descRegion: "Drag a rectangle to capture a portion of the screen",
     lblWhole: "Full Screen Capture",
     descWhole: "Capture the entire active screen immediately",
     secGeneral: "General",
+    lblDataDir: "Screenshot Storage",
+    descDataDir: "Changing location will auto-migrate existing photos",
+    btnBrowseDir: "📂 Browse…",
+    defaultDirNote: "(Default)",
     lblClipboard: "Hang copied images",
     descClipboard: "Automatically hang copied images (including 3rd-party tools) onto the line",
     lblHover: "Reveal on hover",
@@ -84,6 +93,7 @@ const I18N = {
     btnReset: "Restore Defaults",
     btnSave: "Save Changes",
     saved: "Saved!",
+    saving: "Saving…",
     pressKey: "Press keys…",
     needModifier: "Must include Ctrl, Alt, or Shift",
   },
@@ -93,12 +103,14 @@ function updateLanguage(lang) {
   const t = I18N[lang] || I18N["zh-CN"];
   document.getElementById("title-text").textContent = t.title;
   document.getElementById("sec-shortcuts").textContent = t.secShortcuts;
-  document.getElementById("shortcuts-tip").textContent = t.shortcutsTip;
   document.getElementById("lbl-region").textContent = t.lblRegion;
   document.getElementById("desc-region").textContent = t.descRegion;
   document.getElementById("lbl-whole").textContent = t.lblWhole;
   document.getElementById("desc-whole").textContent = t.descWhole;
   document.getElementById("sec-general").textContent = t.secGeneral;
+  document.getElementById("lbl-data-dir").textContent = t.lblDataDir;
+  document.getElementById("desc-data-dir").textContent = t.descDataDir;
+  document.getElementById("btn-browse-dir").textContent = t.btnBrowseDir;
   document.getElementById("lbl-clipboard").textContent = t.lblClipboard;
   document.getElementById("desc-clipboard").textContent = t.descClipboard;
   document.getElementById("lbl-hover").textContent = t.lblHover;
@@ -123,6 +135,14 @@ function updateLanguage(lang) {
   document.getElementById("btn-open-file").textContent = t.btnOpenFile;
   document.getElementById("btn-reset").textContent = t.btnReset;
   document.getElementById("btn-save").textContent = t.btnSave;
+
+  // Refresh directory path label
+  const inputDir = document.getElementById("input-data-dir");
+  if (customDataDir) {
+    inputDir.value = customDataDir;
+  } else if (defaultDataDir) {
+    inputDir.value = defaultDataDir + ` ${t.defaultDirNote || "(默认)"}`;
+  }
 }
 
 /** Convert a Tauri accelerator string (e.g. "control+alt+KeyH") into HTML kbd elements */
@@ -259,6 +279,9 @@ async function load() {
   currentSettings = await invoke("get_settings");
   if (!currentSettings) return;
 
+  defaultDataDir = await invoke("get_default_data_dir");
+  customDataDir = currentSettings.data_dir;
+
   hotkeys.region = currentSettings.region;
   hotkeys.whole = currentSettings.whole;
   renderHotkeys();
@@ -275,6 +298,27 @@ async function load() {
 
   updateLanguage(document.getElementById("sel-lang").value);
 }
+
+document.getElementById("btn-browse-dir").addEventListener("click", async () => {
+  try {
+    const selected = await invoke("select_data_dir");
+    if (selected) {
+      customDataDir = selected;
+      document.getElementById("input-data-dir").value = selected;
+      document.getElementById("input-data-dir").title = selected;
+    }
+  } catch (err) {
+    console.error("Failed to select directory:", err);
+  }
+});
+
+document.getElementById("btn-reset-dir").addEventListener("click", () => {
+  customDataDir = null;
+  const lang = document.getElementById("sel-lang").value;
+  const defaultTag = ` ${I18N[lang]?.defaultDirNote || "(默认)"}`;
+  document.getElementById("input-data-dir").value = defaultDataDir + defaultTag;
+  document.getElementById("input-data-dir").title = defaultDataDir;
+});
 
 document.getElementById("sel-lang").addEventListener("change", (e) => {
   updateLanguage(e.target.value);
@@ -298,6 +342,10 @@ document.getElementById("btn-reset").addEventListener("click", () => {
   hotkeys.region = "control+alt+KeyH";
   hotkeys.whole = "control+alt+shift+KeyH";
   renderHotkeys();
+  customDataDir = null;
+  const defaultTag = ` ${I18N["zh-CN"]?.defaultDirNote || "(默认)"}`;
+  document.getElementById("input-data-dir").value = defaultDataDir + defaultTag;
+  document.getElementById("input-data-dir").title = defaultDataDir;
   document.getElementById("chk-clipboard").checked = true;
   document.getElementById("chk-hover").checked = false;
   document.getElementById("chk-reveal-new").checked = true;
@@ -311,10 +359,18 @@ document.getElementById("btn-reset").addEventListener("click", () => {
 
 document.getElementById("btn-save").addEventListener("click", async () => {
   const keepVal = document.getElementById("sel-keep").value;
+  const lang = document.getElementById("sel-lang").value;
+  const btn = document.getElementById("btn-save");
+  const oldText = btn.textContent;
+
+  btn.textContent = I18N[lang]?.saving || "Saving…";
+  btn.disabled = true;
+
   const newSettings = {
     ...currentSettings,
     region: hotkeys.region,
     whole: hotkeys.whole,
+    data_dir: customDataDir !== undefined ? customDataDir : currentSettings.data_dir,
     hang_clipboard: document.getElementById("chk-clipboard").checked,
     reveal_on_hover: document.getElementById("chk-hover").checked,
     reveal_on_new: document.getElementById("chk-reveal-new").checked,
@@ -322,22 +378,23 @@ document.getElementById("btn-save").addEventListener("click", async () => {
     open_at_login: document.getElementById("chk-autostart").checked,
     scale: parseFloat(document.getElementById("sel-scale").value) || 1.0,
     keep_on_line: keepVal ? parseInt(keepVal, 10) : null,
-    language: document.getElementById("sel-lang").value,
+    language: lang,
   };
 
   try {
     await invoke("save_settings", { newSettings });
     currentSettings = newSettings;
-    const btn = document.getElementById("btn-save");
-    const lang = newSettings.language;
-    const oldText = btn.textContent;
+    customDataDir = newSettings.data_dir;
     btn.textContent = I18N[lang]?.saved || "Saved!";
     btn.style.backgroundColor = "#10b981";
     setTimeout(() => {
       btn.textContent = oldText;
       btn.style.backgroundColor = "";
+      btn.disabled = false;
     }, 1200);
   } catch (err) {
+    btn.textContent = oldText;
+    btn.disabled = false;
     alert("Save failed: " + err);
   }
 });

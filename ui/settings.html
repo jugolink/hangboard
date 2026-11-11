@@ -16,9 +16,6 @@
         <!-- Section: Shortcuts -->
         <section class="group">
           <h2 class="group-title" id="sec-shortcuts">快捷键配置</h2>
-          <div class="tip-box" id="shortcuts-tip">
-            点击输入框后直接按下组合键（如 Ctrl + Alt + A）。
-          </div>
 
           <div class="row hotkey-row">
             <div class="row-label">
@@ -54,6 +51,18 @@
         <!-- Section: General -->
         <section class="group">
           <h2 class="group-title" id="sec-general">常规选项</h2>
+
+          <div class="row path-row">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-data-dir">截图存储目录</span>
+              <span class="label-secondary" id="desc-data-dir">修改保存位置将自动迁移已有截图</span>
+            </div>
+            <div class="path-wrapper">
+              <input type="text" id="input-data-dir" readonly />
+              <button class="btn-browse" id="btn-browse-dir" title="浏览">📂 浏览…</button>
+              <button class="btn-clear" id="btn-reset-dir" title="恢复默认">↺</button>
+            </div>
+          </div>
 
           <div class="row toggle-row">
             <div class="row-label">

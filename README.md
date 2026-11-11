@@ -3,6 +3,8 @@
 Screenshots hang on a line at the top edge of the screen. Click one to copy it
 back. Take it down when you are done.
 
+👉 **面向普通用户的详细使用指南与技巧**：请参阅 [用户使用说明 (USER_GUIDE.md)](USER_GUIDE.md)。
+
 A Windows reimplementation of the idea behind
 [Tendedero](https://github.com/alejandrobujan/tendedero) — not a port. The
 original is AppKit against private macOS APIs; what carried over is the design,

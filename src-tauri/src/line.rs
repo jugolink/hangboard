@@ -237,6 +237,41 @@ pub fn drop_overflow(items: &[Item], cap: u32) -> Vec<String> {
     drop
 }
 
+/// Migrate existing screenshots from `old_dir` to `new_dir`, updating item paths.
+pub fn migrate_shots(old_dir: &Path, new_dir: &Path, items: &mut [Item]) -> Result<(), String> {
+    if old_dir == new_dir {
+        return Ok(());
+    }
+
+    std::fs::create_dir_all(new_dir)
+        .map_err(|e| format!("Failed to create new screenshot directory: {e}"))?;
+
+    if old_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(old_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    let file_name = entry.file_name();
+                    let target_path = new_dir.join(&file_name);
+                    if path != target_path {
+                        std::fs::copy(&path, &target_path)
+                            .map_err(|e| format!("Failed to migrate file {:?}: {e}", file_name))?;
+                        let _ = std::fs::remove_file(&path);
+                    }
+                }
+            }
+        }
+    }
+
+    for item in items {
+        if let Some(file_name) = Path::new(&item.path).file_name() {
+            item.path = new_dir.join(file_name).to_string_lossy().to_string();
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -374,5 +409,25 @@ mod tests {
         ];
         // cap 1: keep the newest unpinned (a); drop c then e (newest-first).
         assert_eq!(drop_overflow(&items, 1), vec!["c", "e"]);
+    }
+
+    #[test]
+    fn migrate_shots_moves_files_and_updates_paths() {
+        let old_dir = scratch("migrate-old");
+        let new_dir = scratch("migrate-new");
+        let item = ingest(img(10, 10), &old_dir, 1, 100).unwrap();
+        assert!(Path::new(&item.path).exists());
+
+        let mut items = vec![item.clone()];
+        migrate_shots(&old_dir, &new_dir, &mut items).unwrap();
+
+        assert!(!Path::new(&item.path).exists(), "old file should be moved");
+        assert!(Path::new(&items[0].path).exists(), "new file should exist");
+        assert_eq!(
+            Path::new(&items[0].path).parent().unwrap(),
+            new_dir.as_path()
+        );
+        let _ = std::fs::remove_dir_all(&old_dir);
+        let _ = std::fs::remove_dir_all(&new_dir);
     }
 }
