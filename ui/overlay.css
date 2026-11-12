@@ -47,11 +47,18 @@ body {
 }
 
 #selection[hidden] {
-  display: none;
+  display: none !important;
 }
 
-/* Eight handles: corners and edge midpoints. 10px is small enough not to be
-   in the way and large enough to hit. */
+#annotation-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Eight handles: corners and edge midpoints. */
 .handle {
   position: absolute;
   width: 10px;
@@ -59,6 +66,7 @@ body {
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.55);
   border-radius: 2px;
+  z-index: 10;
 }
 
 .handle.nw { top: -5px; left: -5px; cursor: nwse-resize; }
@@ -69,6 +77,10 @@ body {
 .handle.s { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
 .handle.w { left: -5px; top: calc(50% - 5px); cursor: ew-resize; }
 .handle.e { right: -5px; top: calc(50% - 5px); cursor: ew-resize; }
+
+#selection.tool-active .handle {
+  opacity: 0.6;
+}
 
 #size {
   position: absolute;
@@ -81,6 +93,7 @@ body {
   font: 500 11px/1.4 ui-monospace, "Cascadia Mono", monospace;
   white-space: nowrap;
   pointer-events: none;
+  z-index: 10;
 }
 
 #hint {
@@ -90,12 +103,189 @@ body {
   transform: translateX(-50%);
   padding: 8px 16px;
   border-radius: 999px;
-  background: rgba(20, 20, 22, 0.72);
+  background: rgba(20, 20, 22, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.92);
-  font: 500 12px/1.2 system-ui, "Segoe UI", sans-serif;
+  font: 500 12px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
   pointer-events: none;
+  z-index: 10001;
 }
 
 #hint.gone {
   display: none;
+}
+
+/* Floating frosted-glass annotation toolbar */
+.annotation-toolbar {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 10000;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.annotation-toolbar[hidden] {
+  display: none !important;
+}
+
+.toolbar-main,
+.toolbar-options {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  background: rgba(24, 24, 28, 0.88);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.25);
+  gap: 3px;
+}
+
+.toolbar-options[hidden] {
+  display: none !important;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, transform 0.08s;
+}
+
+.tool-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.tool-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.tool-btn:active {
+  transform: scale(0.94);
+}
+
+.tool-btn.active {
+  background: #0078d4;
+  color: #fff;
+}
+
+.tool-btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.tool-btn.btn-cancel:hover {
+  background: rgba(239, 68, 68, 0.22);
+  color: #ef4444;
+}
+
+.tool-btn.btn-finish {
+  background: #10b981;
+  color: #fff;
+}
+
+.tool-btn.btn-finish:hover {
+  background: #059669;
+}
+
+.v-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.color-picker,
+.size-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  background: var(--c);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+
+.color-dot:hover {
+  transform: scale(1.18);
+}
+
+.color-dot.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px #0078d4;
+  transform: scale(1.18);
+}
+
+.size-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.size-dot span {
+  display: block;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+}
+
+.size-dot:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.size-dot.active {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Inline text input overlay */
+.annotation-text-input {
+  position: absolute;
+  min-width: 60px;
+  max-width: calc(100% - 10px);
+  min-height: 24px;
+  padding: 3px 6px;
+  outline: 1.5px dashed rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 3px;
+  color: #ef4444;
+  font: bold 18px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  white-space: pre-wrap;
+  word-break: break-word;
+  z-index: 100;
+  caret-color: #fff;
+  user-select: text;
+  -webkit-user-select: text;
 }

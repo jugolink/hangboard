@@ -1,6 +1,6 @@
 [package]
 name = "hangboard"
-version = "0.1.0"
+version = "0.2.0"
 description = "Screenshots hang on a line at the top edge of the screen"
 authors = ["Evek"]
 edition = "2021"

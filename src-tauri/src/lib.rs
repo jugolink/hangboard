@@ -501,6 +501,7 @@ pub fn run() {
             commands::pin_item,
             commands::begin_capture,
             commands::finish_capture,
+            commands::save_annotated_item,
             commands::cancel_capture,
             commands::hide_line,
             commands::toggle_line,

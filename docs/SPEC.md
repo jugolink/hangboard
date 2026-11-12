@@ -1,4 +1,4 @@
-# Hangboard — v0.1 spec
+# Hangboard — spec
 
 A place to hang screenshots while you work. Move the pointer to the top edge of
 the screen and a thin line drops down; screenshots you take get pegged to it.
@@ -17,7 +17,7 @@ not capturing, Windows already does that. The problem is that a screenshot
 lands in a folder, and a minute later you cannot find the one you wanted to
 paste.
 
-## What v0.1 does
+## What it does
 
 | Behaviour | Detail |
 | --- | --- |
@@ -32,17 +32,15 @@ paste.
 | Pin a photo | Click the ☆ at its top-right corner. Pinned photos are the last to fall. |
 | Drag a photo out | Press and move past a 6 px threshold; the shell starts a native `CF_HDROP` drag. The lightbox preview drags out as well. |
 | Extract text (OCR) | Context menu or lightbox preview button; runs native WinRT OCR, opens an edit window, and copies results to clipboard. |
+| Annotate a capture | After dragging the rectangle, draw on it before it hangs: rectangle, ellipse, arrow, pen, highlighter, mosaic, text. `Ctrl+Z` / `Ctrl+Y` undo and redo, `Enter` commits, `Esc` discards. |
 | Persist | The line survives a restart; photos are PNGs on disk. |
 
-## What v0.1 deliberately does not do
+## What the app deliberately does not do
 
-- **Annotation.** Tendedero hands editing to the macOS Markup tool. Windows has
-  no equivalent to hand off to, so this needs its own editor. That is a v0.2
-  feature, not a corner to cut.
-- **Recording, and trimming a recording.** The original can hang a screen
-  recording and trim it by holding. Substantial on its own.
 - **A second line.** There is one line, and it follows the pointer between
   monitors; two monitors do not each get their own rope.
+- **Recording, and trimming a recording.** The original can hang a screen
+  recording and trim it by holding. Substantial on its own.
 
 ## How it works
 
@@ -97,16 +95,21 @@ menus, not the line.
 
 ## Known limits
 
-- There is no annotation editor, and no recording.
+- Marking up an *already hung* photo is not wired up: the annotation layer only
+  runs during capture. The context menu's "Mark Up…" entry is present but
+  disabled, and `save_annotated_item` has no caller yet.
+- There is no recording.
 - Not verified on a machine that is not the development machine.
 
-## Definition of done for v0.1
+## Definition of done
 
 - [x] `Ctrl+Alt+H` captures a region, `Ctrl+Alt+Shift+H` the whole screen
 - [x] `Ctrl+Alt+L` toggles the line without reaching for the top edge
 - [x] The result is on the line and on the clipboard
 - [x] Click copies, ✕ discards, ☆ pins
 - [x] A photo drags out to another application as a real file
+- [x] A capture can be annotated before it hangs
+- [x] Text is extracted offline through native WinRT OCR
 - [x] The line persists across restarts
 - [x] The line drops and retracts on pointer movement
 - [x] The window is click-through away from the photos
