@@ -32,7 +32,7 @@ paste.
 | Pin a photo | Click the ☆ at its top-right corner. Pinned photos are the last to fall. |
 | Drag a photo out | Press and move past a 6 px threshold; the shell starts a native `CF_HDROP` drag. The lightbox preview drags out as well. |
 | Extract text (OCR) | Context menu or lightbox preview button; runs native WinRT OCR, opens an edit window, and copies results to clipboard. |
-| Annotate a capture | After dragging the rectangle, draw on it before it hangs: rectangle, ellipse, arrow, pen, highlighter, mosaic, text. `Ctrl+Z` / `Ctrl+Y` undo and redo, `Enter` commits, `Esc` discards. |
+| Annotate a capture | After dragging the rectangle, draw on it before it hangs: rectangle, ellipse, arrow, pen, highlighter, mosaic, text. `Ctrl+Z` / `Ctrl+Y` undo and redo, `Enter` commits, `Esc` leaves the current tool and then discards. |
 | Persist | The line survives a restart; photos are PNGs on disk. |
 
 ## What the app deliberately does not do
