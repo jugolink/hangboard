@@ -238,18 +238,7 @@ fn set_checked(menu: &Menu<tauri::Wry>, id: &str, checked: bool) {
 fn handle_menu(app: &AppHandle, id: &str) -> Result<(), String> {
     match id {
         "toggle_line" => {
-            let state = app.state::<AppState>();
-            let mut is_pinned = false;
-            if let Ok(mut inner) = state.inner.lock() {
-                inner.pinned = !inner.pinned;
-                is_pinned = inner.pinned;
-            }
-            crate::reveal(app, is_pinned);
-            let Ok(root) = crate::data_root(app) else {
-                return Ok(());
-            };
-            let settings = Settings::load(&root);
-            refresh_checks(app, &settings);
+            crate::toggle_line(app);
         }
         "take_everything_down" => crate::take_everything_down(app)?,
         "capture_region" => {

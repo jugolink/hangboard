@@ -349,7 +349,33 @@ pub fn register_shortcuts(app: &AppHandle, settings: &settings::Settings) -> Res
         .map_err(|e| e.to_string())?;
     }
 
+    if let Ok(toggle) = settings.toggle.parse::<Shortcut>() {
+        let h = app.clone();
+        gs.on_shortcut(toggle, move |_app, _sc, event| {
+            if event.state == ShortcutState::Pressed {
+                toggle_line(&h);
+            }
+        })
+        .map_err(|e| e.to_string())?;
+    }
+
     Ok(())
+}
+
+/// Toggle line visibility via hotkey, tray, or command.
+pub fn toggle_line(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let is_revealed = state.inner.lock().map(|g| g.revealed).unwrap_or(false);
+
+    let new_pinned = !is_revealed;
+    if let Ok(mut inner) = state.inner.lock() {
+        inner.pinned = new_pinned;
+        if !new_pinned {
+            inner.auto_dismiss_at = None;
+        }
+    }
+    reveal(app, new_pinned);
+    tray::refresh_checks_current(app);
 }
 
 /// Re-read settings and apply every live piece: line size, hotkeys, and the
@@ -465,6 +491,7 @@ pub fn run() {
             commands::finish_capture,
             commands::cancel_capture,
             commands::hide_line,
+            commands::toggle_line,
             commands::get_language,
             commands::preview_index,
             commands::preview_image,

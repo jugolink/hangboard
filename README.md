@@ -23,6 +23,7 @@ clothesline.
 
 - **`Ctrl+Alt+H`** — capture a region. Drag a rectangle, release.
 - **`Ctrl+Alt+Shift+H`** — capture the whole screen.
+- **`Ctrl+Alt+L`** — toggle the clothesline (show or hide).
 - **Click a photo** — copy it to the clipboard.
 - **Double-click a photo** — open the centred lightbox preview.
 - **Right-click a photo** — the context menu: copy, open, reveal, export, discard.

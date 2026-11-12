@@ -12,6 +12,7 @@ let defaultDataDir = "";
 let hotkeys = {
   region: "control+alt+KeyH",
   whole: "control+alt+shift+KeyH",
+  toggle: "control+alt+KeyL",
 };
 
 const I18N = {
@@ -22,6 +23,8 @@ const I18N = {
     descRegion: "拖选矩形区域进行截图",
     lblWhole: "全屏截图",
     descWhole: "瞬间截取整个屏幕画面",
+    lblToggle: "显示/隐藏晾衣绳",
+    descToggle: "快速呼出或收回屏幕顶部的晾衣绳",
     secGeneral: "常规选项",
     lblDataDir: "截图存储目录",
     descDataDir: "修改保存位置将自动迁移已有截图",
@@ -63,6 +66,8 @@ const I18N = {
     descRegion: "Drag a rectangle to capture a portion of the screen",
     lblWhole: "Full Screen Capture",
     descWhole: "Capture the entire active screen immediately",
+    lblToggle: "Toggle Clothesline",
+    descToggle: "Quickly show or hide the clothesline at the top edge",
     secGeneral: "General",
     lblDataDir: "Screenshot Storage",
     descDataDir: "Changing location will auto-migrate existing photos",
@@ -107,6 +112,8 @@ function updateLanguage(lang) {
   document.getElementById("desc-region").textContent = t.descRegion;
   document.getElementById("lbl-whole").textContent = t.lblWhole;
   document.getElementById("desc-whole").textContent = t.descWhole;
+  document.getElementById("lbl-toggle").textContent = t.lblToggle;
+  document.getElementById("desc-toggle").textContent = t.descToggle;
   document.getElementById("sec-general").textContent = t.secGeneral;
   document.getElementById("lbl-data-dir").textContent = t.lblDataDir;
   document.getElementById("desc-data-dir").textContent = t.descDataDir;
@@ -169,6 +176,7 @@ function formatKbdHtml(accelerator) {
 function renderHotkeys() {
   document.getElementById("keys-region").innerHTML = formatKbdHtml(hotkeys.region);
   document.getElementById("keys-whole").innerHTML = formatKbdHtml(hotkeys.whole);
+  document.getElementById("keys-toggle").innerHTML = formatKbdHtml(hotkeys.toggle);
 }
 
 /** Setup hotkey box listeners */
@@ -193,7 +201,12 @@ function setupRecorder(target) {
 
   document.getElementById(`clear-${target}`).addEventListener("click", (e) => {
     e.stopPropagation();
-    const def = target === "region" ? "control+alt+KeyH" : "control+alt+shift+KeyH";
+    const def =
+      target === "region"
+        ? "control+alt+KeyH"
+        : target === "whole"
+          ? "control+alt+shift+KeyH"
+          : "control+alt+KeyL";
     hotkeys[target] = def;
     renderHotkeys();
   });
@@ -284,6 +297,7 @@ async function load() {
 
   hotkeys.region = currentSettings.region;
   hotkeys.whole = currentSettings.whole;
+  hotkeys.toggle = currentSettings.toggle || "control+alt+KeyL";
   renderHotkeys();
 
   document.getElementById("chk-clipboard").checked = currentSettings.hang_clipboard;
@@ -341,6 +355,7 @@ document.getElementById("btn-open-file").addEventListener("click", async () => {
 document.getElementById("btn-reset").addEventListener("click", () => {
   hotkeys.region = "control+alt+KeyH";
   hotkeys.whole = "control+alt+shift+KeyH";
+  hotkeys.toggle = "control+alt+KeyL";
   renderHotkeys();
   customDataDir = null;
   const defaultTag = ` ${I18N["zh-CN"]?.defaultDirNote || "(默认)"}`;
@@ -370,6 +385,7 @@ document.getElementById("btn-save").addEventListener("click", async () => {
     ...currentSettings,
     region: hotkeys.region,
     whole: hotkeys.whole,
+    toggle: hotkeys.toggle,
     data_dir: customDataDir !== undefined ? customDataDir : currentSettings.data_dir,
     hang_clipboard: document.getElementById("chk-clipboard").checked,
     reveal_on_hover: document.getElementById("chk-hover").checked,
@@ -401,6 +417,7 @@ document.getElementById("btn-save").addEventListener("click", async () => {
 
 setupRecorder("region");
 setupRecorder("whole");
+setupRecorder("toggle");
 
 load().catch(console.error);
 
