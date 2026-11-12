@@ -11,6 +11,7 @@ pub const SETTINGS_FILE: &str = "settings.json";
 /// modifiers (any order) followed by the key, e.g. `control+alt+KeyH`.
 pub const DEFAULT_REGION: &str = "control+alt+KeyH";
 pub const DEFAULT_WHOLE: &str = "control+alt+shift+KeyH";
+pub const DEFAULT_TOGGLE: &str = "control+alt+KeyL";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
@@ -19,6 +20,8 @@ pub struct Settings {
     pub region: String,
     /// Accelerator for the full-screen capture shortcut.
     pub whole: String,
+    /// Accelerator for toggling the clothesline visibility.
+    pub toggle: String,
     /// Line size multiplier: 0.8 small, 1.0 medium, 1.35 large.
     pub scale: f64,
     /// Whether the app should start with Windows.
@@ -50,6 +53,7 @@ impl Default for Settings {
         Self {
             region: DEFAULT_REGION.into(),
             whole: DEFAULT_WHOLE.into(),
+            toggle: DEFAULT_TOGGLE.into(),
             scale: 1.0,
             open_at_login: false,
             hang_clipboard: true,
@@ -102,6 +106,7 @@ mod tests {
         let s = Settings::default();
         assert_eq!(s.region, "control+alt+KeyH");
         assert_eq!(s.whole, "control+alt+shift+KeyH");
+        assert_eq!(s.toggle, "control+alt+KeyL");
         assert!((s.scale - 1.0).abs() < f64::EPSILON);
         assert!(!s.open_at_login);
         assert!(s.hang_clipboard);

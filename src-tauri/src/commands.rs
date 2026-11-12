@@ -270,6 +270,11 @@ pub fn hide_line(app: AppHandle, state: State<'_, AppState>) {
 }
 
 #[tauri::command]
+pub fn toggle_line(app: AppHandle) {
+    crate::toggle_line(&app);
+}
+
+#[tauri::command]
 pub fn get_language(app: AppHandle) -> String {
     let Ok(root) = crate::data_root(&app) else {
         return "zh-CN".into();
