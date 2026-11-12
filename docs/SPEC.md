@@ -25,6 +25,7 @@ paste.
 | Hide the line | Pointer leaves the line and the photos for 500 ms. |
 | Capture a region | `Ctrl+Alt+H`, drag a rectangle, release. |
 | Capture everything | `Ctrl+Alt+Shift+H`. |
+| Toggle the line | `Ctrl+Alt+L` pins the line open or takes it back down, without touching the top edge. |
 | Hang the result | The new screenshot appears at the right end of the line and is already on the clipboard. |
 | Copy a photo | Click it. One click, no double-click interval to wait out. |
 | Take a photo down | Click the ✕ at its top-left corner, or press `Delete` while hovering it. |
@@ -102,6 +103,7 @@ menus, not the line.
 ## Definition of done for v0.1
 
 - [x] `Ctrl+Alt+H` captures a region, `Ctrl+Alt+Shift+H` the whole screen
+- [x] `Ctrl+Alt+L` toggles the line without reaching for the top edge
 - [x] The result is on the line and on the clipboard
 - [x] Click copies, ✕ discards, ☆ pins
 - [x] A photo drags out to another application as a real file

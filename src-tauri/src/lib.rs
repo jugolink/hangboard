@@ -321,19 +321,26 @@ pub fn register_shortcuts(app: &AppHandle, settings: &settings::Settings) -> Res
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
 
+    // Each registration is attempted independently and a failure is logged and
+    // skipped: a shortcut another app already owns must never stop the line
+    // from starting, and it must not take the other shortcuts down with it.
     if let Ok(region) = settings.region.parse::<Shortcut>() {
         let h = app.clone();
-        gs.on_shortcut(region, move |_app, _sc, event| {
+        if let Err(e) = gs.on_shortcut(region, move |_app, _sc, event| {
             if event.state == ShortcutState::Pressed {
                 let _ = commands::begin_capture(h.clone(), h.state());
             }
-        })
-        .map_err(|e| e.to_string())?;
+        }) {
+            eprintln!(
+                "[shortcuts] region ({}) not registered: {e}",
+                settings.region
+            );
+        }
     }
 
     if let Ok(whole) = settings.whole.parse::<Shortcut>() {
         let h = app.clone();
-        gs.on_shortcut(whole, move |_app, _sc, event| {
+        if let Err(e) = gs.on_shortcut(whole, move |_app, _sc, event| {
             if event.state == ShortcutState::Pressed {
                 let h = h.clone();
                 std::thread::spawn(move || {
@@ -345,18 +352,23 @@ pub fn register_shortcuts(app: &AppHandle, settings: &settings::Settings) -> Res
                     }
                 });
             }
-        })
-        .map_err(|e| e.to_string())?;
+        }) {
+            eprintln!("[shortcuts] whole ({}) not registered: {e}", settings.whole);
+        }
     }
 
     if let Ok(toggle) = settings.toggle.parse::<Shortcut>() {
         let h = app.clone();
-        gs.on_shortcut(toggle, move |_app, _sc, event| {
+        if let Err(e) = gs.on_shortcut(toggle, move |_app, _sc, event| {
             if event.state == ShortcutState::Pressed {
                 toggle_line(&h);
             }
-        })
-        .map_err(|e| e.to_string())?;
+        }) {
+            eprintln!(
+                "[shortcuts] toggle ({}) not registered: {e}",
+                settings.toggle
+            );
+        }
     }
 
     Ok(())
