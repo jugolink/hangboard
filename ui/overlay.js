@@ -29,6 +29,73 @@ let box = null;
 let drag = null;
 let isTextActive = false;
 
+const I18N = {
+  "zh-CN": {
+    hint: "拖拽框选截图区域 · 再次点击工具可退出标注",
+    colorRed: "红色",
+    colorOrange: "橙色",
+    colorYellow: "黄色",
+    colorGreen: "绿色",
+    colorBlue: "蓝色",
+    colorPurple: "紫色",
+    colorWhite: "白色",
+    sizeThin: "细",
+    sizeMedium: "中",
+    sizeThick: "粗",
+    toolRect: "矩形 (R)",
+    toolEllipse: "椭圆 (O)",
+    toolArrow: "箭头 (A)",
+    toolPen: "画笔 (P)",
+    toolHighlighter: "荧光笔 (H)",
+    toolMosaic: "马赛克 (M)",
+    toolText: "文字标注 (T)",
+    actionUndo: "撤销 (Ctrl+Z)",
+    actionRedo: "重做 (Ctrl+Y)",
+    actionCancel: "取消 (Esc)",
+    actionFinish: "完成挂绳并复制 (Enter)",
+  },
+  en: {
+    hint: "Drag to select · click a tool again to leave annotating",
+    colorRed: "Red",
+    colorOrange: "Orange",
+    colorYellow: "Yellow",
+    colorGreen: "Green",
+    colorBlue: "Blue",
+    colorPurple: "Purple",
+    colorWhite: "White",
+    sizeThin: "Thin",
+    sizeMedium: "Medium",
+    sizeThick: "Thick",
+    toolRect: "Rectangle (R)",
+    toolEllipse: "Ellipse (O)",
+    toolArrow: "Arrow (A)",
+    toolPen: "Pen (P)",
+    toolHighlighter: "Highlighter (H)",
+    toolMosaic: "Mosaic (M)",
+    toolText: "Text (T)",
+    actionUndo: "Undo (Ctrl+Z)",
+    actionRedo: "Redo (Ctrl+Y)",
+    actionCancel: "Cancel (Esc)",
+    actionFinish: "Hang it and copy (Enter)",
+  },
+};
+
+let currentLang = "zh-CN";
+
+function updateLanguage(lang) {
+  currentLang = lang;
+  const t = I18N[lang] || I18N["zh-CN"];
+
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.dataset.i18n;
+    if (t[key]) el.textContent = t[key];
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    const key = el.dataset.i18nTitle;
+    if (t[key]) el.title = t[key];
+  });
+}
+
 // Initialize Annotator
 const annotator = new Annotator(canvas, {
   factor: 1,
@@ -384,13 +451,31 @@ window.addEventListener("dblclick", async (event) => {
 });
 
 async function boot() {
-  await listen("capture:begin", (event) => {
+  try {
+    const lang = await invoke("get_language");
+    if (lang) updateLanguage(lang);
+  } catch (_) {}
+
+  await listen("app:language", (event) => {
+    updateLanguage(event.payload);
+  });
+
+  await listen("capture:begin", async (event) => {
     const { backdrop: url, factor: f } = event.payload;
     factor = f || 1;
     backdrop.style.backgroundImage = `url("${url}")`;
 
+    // Decode before the annotator can sample it. Without this the first
+    // selection can land on an image that has no pixel data yet, and both the
+    // mosaic sampling and exportComposite would throw.
     stillImg = new Image();
     stillImg.src = url;
+    try {
+      await stillImg.decode();
+    } catch (_) {
+      // Keep going: annotate.js degrades to a flat block fill when there is no
+      // source to sample.
+    }
 
     annotator.setFactor(factor);
     annotator.clear();

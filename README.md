@@ -28,6 +28,11 @@ clothesline.
 - **Double-click a photo** — open the centred lightbox preview.
 - **Right-click a photo** — the context menu: copy, open, reveal, export, discard.
 - **Extract text (OCR)** — extract text directly from the context menu or lightbox preview; automatically copies to clipboard and opens an edit window for adjustments.
+- **Annotate while you capture** — after dragging the rectangle, draw on it before it hangs:
+  rectangle, ellipse, arrow, pen, highlighter, mosaic and text, each with a colour
+  and a stroke width. `Ctrl+Z` / `Ctrl+Y` undo and redo; `Enter` hangs the
+  composited result, `Esc` throws it away. The annotated PNG replaces what was
+  selected and lands on the clipboard like any other capture.
 - **Drag a photo out** — a native OLE drag, so the file lands in Explorer, WeChat,
   QQ, Feishu, Word, Photoshop or VS Code. The lightbox preview drags out too.
 - **✕ on a photo** — take it down.
@@ -93,13 +98,14 @@ src-tauri/src/
   autostart.rs  the "open at login" registry entry
 ui/
   index.html    the line window
-  overlay.html  the region-picking overlay
+  overlay.html  the region-picking overlay, with the annotation toolbar
+  annotate.js   the canvas annotation layer the overlay draws with
   preview.html  the centred lightbox preview
   context.html  the per-photo context menu
   settings.html the settings panel
   ocr.html      the OCR text result and editing window
 docs/
-  SPEC.md       what v0.1 does and does not do
+  SPEC.md       what the app does and does not do
   adr/          why the load-bearing decisions went the way they did
 ```
 

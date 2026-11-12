@@ -24,70 +24,71 @@
       <div id="size"></div>
     </div>
 
-    <!-- Floating annotation toolbar -->
+    <!-- Floating annotation toolbar. Every title is filled in from the
+         I18N table in overlay.js, so nothing here is language-bound. -->
     <div id="toolbar" class="annotation-toolbar" hidden>
       <div id="toolbar-options" class="toolbar-options" hidden>
         <div class="color-picker">
-          <button class="color-dot active" data-color="#ef4444" style="--c: #ef4444" title="红色"></button>
-          <button class="color-dot" data-color="#f97316" style="--c: #f97316" title="橙色"></button>
-          <button class="color-dot" data-color="#eab308" style="--c: #eab308" title="黄色"></button>
-          <button class="color-dot" data-color="#22c55e" style="--c: #22c55e" title="绿色"></button>
-          <button class="color-dot" data-color="#3b82f6" style="--c: #3b82f6" title="蓝色"></button>
-          <button class="color-dot" data-color="#a855f7" style="--c: #a855f7" title="紫色"></button>
-          <button class="color-dot" data-color="#ffffff" style="--c: #ffffff" title="白色"></button>
+          <button class="color-dot active" data-color="#ef4444" style="--c: #ef4444" data-i18n-title="colorRed"></button>
+          <button class="color-dot" data-color="#f97316" style="--c: #f97316" data-i18n-title="colorOrange"></button>
+          <button class="color-dot" data-color="#eab308" style="--c: #eab308" data-i18n-title="colorYellow"></button>
+          <button class="color-dot" data-color="#22c55e" style="--c: #22c55e" data-i18n-title="colorGreen"></button>
+          <button class="color-dot" data-color="#3b82f6" style="--c: #3b82f6" data-i18n-title="colorBlue"></button>
+          <button class="color-dot" data-color="#a855f7" style="--c: #a855f7" data-i18n-title="colorPurple"></button>
+          <button class="color-dot" data-color="#ffffff" style="--c: #ffffff" data-i18n-title="colorWhite"></button>
         </div>
         <div class="v-divider"></div>
         <div class="size-picker">
-          <button class="size-dot" data-size="2" title="细"><span style="width: 4px; height: 4px;"></span></button>
-          <button class="size-dot active" data-size="4" title="中"><span style="width: 7px; height: 7px;"></span></button>
-          <button class="size-dot" data-size="8" title="粗"><span style="width: 11px; height: 11px;"></span></button>
+          <button class="size-dot" data-size="2" data-i18n-title="sizeThin"><span style="width: 4px; height: 4px;"></span></button>
+          <button class="size-dot active" data-size="4" data-i18n-title="sizeMedium"><span style="width: 7px; height: 7px;"></span></button>
+          <button class="size-dot" data-size="8" data-i18n-title="sizeThick"><span style="width: 11px; height: 11px;"></span></button>
         </div>
       </div>
 
       <div class="toolbar-main">
-        <button class="tool-btn" data-tool="rect" title="矩形 (R)">
+        <button class="tool-btn" data-tool="rect" data-i18n-title="toolRect">
           <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
         </button>
-        <button class="tool-btn" data-tool="ellipse" title="椭圆 (O)">
+        <button class="tool-btn" data-tool="ellipse" data-i18n-title="toolEllipse">
           <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="6.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
         </button>
-        <button class="tool-btn" data-tool="arrow" title="箭头 (A)">
+        <button class="tool-btn" data-tool="arrow" data-i18n-title="toolArrow">
           <svg viewBox="0 0 24 24"><path d="M5 19L19 5M19 5v9M19 5H10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <button class="tool-btn" data-tool="pen" title="画笔 (P)">
+        <button class="tool-btn" data-tool="pen" data-i18n-title="toolPen">
           <svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <button class="tool-btn" data-tool="highlighter" title="荧光笔 (H)">
+        <button class="tool-btn" data-tool="highlighter" data-i18n-title="toolHighlighter">
           <svg viewBox="0 0 24 24"><path d="m9 11-6 6v3h3l6-6m-3-3 7-7a2 2 0 0 1 3 3l-7 7m-3-3 3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <button class="tool-btn" data-tool="mosaic" title="马赛克 (M)">
+        <button class="tool-btn" data-tool="mosaic" data-i18n-title="toolMosaic">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="4" height="4" fill="currentColor"/><rect x="11" y="3" width="4" height="4" fill="currentColor"/><rect x="17" y="3" width="4" height="4" fill="currentColor"/><rect x="7" y="7" width="4" height="4" fill="currentColor"/><rect x="15" y="7" width="4" height="4" fill="currentColor"/><rect x="3" y="11" width="4" height="4" fill="currentColor"/><rect x="11" y="11" width="4" height="4" fill="currentColor"/><rect x="17" y="11" width="4" height="4" fill="currentColor"/><rect x="7" y="15" width="4" height="4" fill="currentColor"/><rect x="15" y="15" width="4" height="4" fill="currentColor"/><rect x="3" y="19" width="4" height="4" fill="currentColor"/><rect x="11" y="19" width="4" height="4" fill="currentColor"/><rect x="17" y="19" width="4" height="4" fill="currentColor"/></svg>
         </button>
-        <button class="tool-btn" data-tool="text" title="文字标注 (T)">
+        <button class="tool-btn" data-tool="text" data-i18n-title="toolText">
           <svg viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
 
         <div class="v-divider"></div>
 
-        <button class="tool-btn" data-action="undo" title="撤销 (Ctrl+Z)" disabled>
+        <button class="tool-btn" data-action="undo" data-i18n-title="actionUndo" disabled>
           <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 20v-7a4 4 0 0 0-4-4H4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <button class="tool-btn" data-action="redo" title="重做 (Ctrl+Y)" disabled>
+        <button class="tool-btn" data-action="redo" data-i18n-title="actionRedo" disabled>
           <svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20v-7a4 4 0 0 1 4-4h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
 
         <div class="v-divider"></div>
 
-        <button class="tool-btn btn-cancel" data-action="cancel" title="取消 (Esc)">
+        <button class="tool-btn btn-cancel" data-action="cancel" data-i18n-title="actionCancel">
           <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <button class="tool-btn btn-finish" data-action="finish" title="完成挂绳并复制 (Enter)">
+        <button class="tool-btn btn-finish" data-action="finish" data-i18n-title="actionFinish">
           <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
     </div>
 
-    <div id="hint">拖拽框选截图区域 · 再次点击工具可退出标注</div>
+    <div id="hint" data-i18n="hint">Drag to select · click a tool again to leave annotating</div>
 
     <script src="annotate.js"></script>
     <script src="overlay.js"></script>

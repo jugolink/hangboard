@@ -38,17 +38,26 @@ class Annotator {
     this.sourceCanvas.width = sw;
     this.sourceCanvas.height = sh;
     this.sourceCtx = this.sourceCanvas.getContext("2d", { willReadFrequently: true });
-    this.sourceCtx.drawImage(
-      imageElement,
-      cropX,
-      cropY,
-      cropW,
-      cropH,
-      0,
-      0,
-      sw,
-      sh
-    );
+    try {
+      this.sourceCtx.drawImage(
+        imageElement,
+        cropX,
+        cropY,
+        cropW,
+        cropH,
+        0,
+        0,
+        sw,
+        sh
+      );
+    } catch (_) {
+      // The still may not have decoded yet (or the source rect falls outside
+      // it). Dropping the sample only costs mosaic fidelity: every other tool
+      // still draws, and _drawAction already falls back to a flat block fill
+      // when sourceCtx is missing.
+      this.sourceCanvas = null;
+      this.sourceCtx = null;
+    }
   }
 
   resize(w, h) {
@@ -279,7 +288,12 @@ class Annotator {
         input.remove();
         this.onTextActive(false);
       } else if (e.key === "Enter" && !e.shiftKey) {
+        // Both, and in this order: preventDefault keeps the newline out of the
+        // contenteditable, stopPropagation keeps the same Enter from reaching
+        // the window handler, which would otherwise commit the capture the
+        // instant a text annotation is finished.
         e.preventDefault();
+        e.stopPropagation();
         commitText();
       }
     });
@@ -475,7 +489,7 @@ class Annotator {
         ctx.shadowOffsetY = 1;
 
         ctx.fillStyle = action.color;
-        const lines = action.text.split("\n");
+        const lines = action.text.split(/\r?\n/);
         const lineHeight = (action.fontSize || 18) * 1.35;
         for (let i = 0; i < lines.length; i++) {
           ctx.fillText(lines[i], action.x, action.y + i * lineHeight);
@@ -498,18 +512,24 @@ class Annotator {
     outCanvas.height = outH;
 
     const outCtx = outCanvas.getContext("2d");
-    // Draw original cropped screenshot
-    outCtx.drawImage(
-      imageElement,
-      cropX,
-      cropY,
-      cropW,
-      cropH,
-      0,
-      0,
-      outW,
-      outH
-    );
+    // Draw original cropped screenshot. If the still has not decoded yet there
+    // is nothing to composite onto, so fall back to a transparent sheet rather
+    // than throwing away the annotations the user just drew.
+    try {
+      outCtx.drawImage(
+        imageElement,
+        cropX,
+        cropY,
+        cropW,
+        cropH,
+        0,
+        0,
+        outW,
+        outH
+      );
+    } catch (_) {
+      // leave the sheet empty
+    }
 
     // Scale context to match physical factor and draw vector annotations on top
     const scale = outW / (this.width || 1);
