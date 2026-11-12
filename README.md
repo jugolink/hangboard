@@ -30,9 +30,9 @@ clothesline.
 - **Extract text (OCR)** — extract text directly from the context menu or lightbox preview; automatically copies to clipboard and opens an edit window for adjustments.
 - **Annotate while you capture** — after dragging the rectangle, draw on it before it hangs:
   rectangle, ellipse, arrow, pen, highlighter, mosaic and text, each with a colour
-  and a stroke width. `Ctrl+Z` / `Ctrl+Y` undo and redo; `Enter` hangs the
-  composited result, `Esc` throws it away. The annotated PNG replaces what was
-  selected and lands on the clipboard like any other capture.
+  and a stroke width. `Ctrl+Z` / `Ctrl+Y` undo and redo, `Enter` hangs the
+  composited result. `Esc` backs out of the current tool first, then throws the
+  capture away. The annotated PNG is what gets saved and put on the clipboard.
 - **Drag a photo out** — a native OLE drag, so the file lands in Explorer, WeChat,
   QQ, Feishu, Word, Photoshop or VS Code. The lightbox preview drags out too.
 - **✕ on a photo** — take it down.
