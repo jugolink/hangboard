@@ -217,11 +217,24 @@ pub fn begin_capture(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()
 }
 
 /// Take the selected rectangle out of the frozen frame and hang it.
+fn decode_data_url(data_url: &str) -> Result<image::RgbaImage, String> {
+    let base64_part = data_url.split_once(',').map(|(_, b)| b).unwrap_or(data_url);
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(base64_part.trim())
+        .map_err(|e| format!("Invalid base64: {e}"))?;
+    let img = image::load_from_memory(&bytes)
+        .map_err(|e| format!("Failed to decode image: {e}"))?
+        .to_rgba8();
+    Ok(img)
+}
+
 #[tauri::command]
 pub fn finish_capture(
     app: AppHandle,
     state: State<'_, AppState>,
     rect: (f64, f64, f64, f64),
+    annotated_data_url: Option<String>,
 ) -> CmdResult<()> {
     let buf = {
         let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
@@ -229,7 +242,11 @@ pub fn finish_capture(
     };
     let factor = factor_of(&app).unwrap_or(1.0);
 
-    let img = capture::crop(&buf, rect, factor).ok_or("empty selection")?;
+    let img = if let Some(ref data_url) = annotated_data_url {
+        decode_data_url(data_url)?
+    } else {
+        capture::crop(&buf, rect, factor).ok_or("empty selection")?
+    };
     let item = crate::hang(&app, img)?;
 
     // A screenshot people expect to paste right away.
@@ -244,6 +261,49 @@ pub fn finish_capture(
 
     crate::reveal_on_new(&app);
     Ok(())
+}
+
+#[tauri::command]
+pub fn save_annotated_item(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    data_url: String,
+) -> CmdResult<()> {
+    let new_img = decode_data_url(&data_url)?;
+    let root = crate::data_root(&app)?;
+    let thumb_h = geometry(1.0).photo_max_height as u32;
+
+    let mut item_opt = None;
+    if let Ok(mut inner) = state.inner.lock() {
+        if let Some(item) = inner.items.iter_mut().find(|i| i.id == id) {
+            let path = std::path::PathBuf::from(&item.path);
+            new_img
+                .save_with_format(&path, image::ImageFormat::Png)
+                .map_err(|e| e.to_string())?;
+            item.aspect = if new_img.height() == 0 {
+                1.0
+            } else {
+                new_img.width() as f64 / new_img.height() as f64
+            };
+            item.hash = line::image_hash(&new_img);
+            if let Ok(thumb) = line::thumbnail_data_url(&new_img, thumb_h) {
+                item.thumb = thumb;
+            }
+            item_opt = Some(item.clone());
+        }
+        if let Some(ref it) = item_opt {
+            let _ = line::copy_to_clipboard(it);
+            let _ = line::save_items(&root, &inner.items);
+        }
+    }
+
+    if item_opt.is_some() {
+        crate::emit_items(&app);
+        Ok(())
+    } else {
+        Err(format!("Item not found: {id}"))
+    }
 }
 
 #[tauri::command]

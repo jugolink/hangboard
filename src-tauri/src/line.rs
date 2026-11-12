@@ -74,7 +74,7 @@ pub fn new_id(now_millis: u128) -> String {
 /// Data URLs keep the webview free of filesystem permissions: no asset
 /// protocol, no scope config, just bytes in a `src`. Thumbnails are a couple
 /// of hundred KB at most, so the size is fine.
-fn data_url(img: &RgbaImage) -> Result<String, String> {
+pub fn data_url(img: &RgbaImage) -> Result<String, String> {
     let mut png = Vec::new();
     let encoder = image::codecs::png::PngEncoder::new(&mut png);
     image::ImageEncoder::write_image(
@@ -91,6 +91,10 @@ fn data_url(img: &RgbaImage) -> Result<String, String> {
         "data:image/png;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(png)
     ))
+}
+
+pub fn thumbnail_data_url(img: &RgbaImage, max_height: u32) -> Result<String, String> {
+    data_url(&thumbnail(img, max_height))
 }
 
 /// Shrink for display. Aspect ratio is preserved, so a tall screenshot and a
