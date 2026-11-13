@@ -36,7 +36,10 @@ const I18N = {
     lblHover: "鼠标悬停展开",
     descHover: "移至屏幕顶部中央 84% 区域、距顶边 8px 内触发下垂",
     lblRevealNew: "新图自动展开与展示",
-    descRevealNew: "截图或复制新图片后自动展开绳索并展示 3 秒",
+    descRevealNew: "截图或复制新图片后自动展开绳索并展示",
+    lblRevealDuration: "展示停留时长",
+    descRevealDuration: "新图挂上晾衣绳后展开展示的时长，超时后自动隐藏收起",
+    unitRevealDuration: "秒",
     lblSounds: "提示音效",
     descSounds: "新图片挂上晾衣绳时播放提示音",
     lblSoundPath: "自定义提示音效",
@@ -84,7 +87,10 @@ const I18N = {
     lblHover: "Reveal on hover",
     descHover: "Drop the line when the pointer enters the top 8 px band of the central 84%",
     lblRevealNew: "Reveal on new photo",
-    descRevealNew: "Auto-drop line and display newly hung photo for 3s",
+    descRevealNew: "Auto-drop line and display newly hung photo",
+    lblRevealDuration: "Display Duration",
+    descRevealDuration: "Duration to keep the line dropped after a new capture before auto-dismissing",
+    unitRevealDuration: "sec",
     lblSounds: "Sound effects",
     descSounds: "Play subtle chime when a photo hangs on the line",
     lblSoundPath: "Custom Sound Effect",
@@ -135,6 +141,9 @@ function updateLanguage(lang) {
   document.getElementById("desc-hover").textContent = t.descHover;
   document.getElementById("lbl-reveal-new").textContent = t.lblRevealNew;
   document.getElementById("desc-reveal-new").textContent = t.descRevealNew;
+  document.getElementById("lbl-reveal-duration").textContent = t.lblRevealDuration;
+  document.getElementById("desc-reveal-duration").textContent = t.descRevealDuration;
+  document.getElementById("unit-reveal-duration").textContent = t.unitRevealDuration;
   document.getElementById("lbl-sounds").textContent = t.lblSounds;
   document.getElementById("desc-sounds").textContent = t.descSounds;
   document.getElementById("lbl-sound-path").textContent = t.lblSoundPath;
@@ -319,6 +328,8 @@ async function load() {
   document.getElementById("chk-clipboard").checked = currentSettings.hang_clipboard;
   document.getElementById("chk-hover").checked = currentSettings.reveal_on_hover;
   document.getElementById("chk-reveal-new").checked = currentSettings.reveal_on_new;
+  document.getElementById("input-reveal-duration").value = currentSettings.reveal_duration || 3;
+  document.getElementById("row-reveal-duration").classList.toggle("disabled", !currentSettings.reveal_on_new);
   document.getElementById("chk-sounds").checked = currentSettings.sounds;
   document.getElementById("chk-autostart").checked = currentSettings.open_at_login;
 
@@ -359,6 +370,10 @@ document.getElementById("btn-reset-dir").addEventListener("click", () => {
   const defaultTag = ` ${I18N[lang]?.defaultDirNote || "(默认)"}`;
   document.getElementById("input-data-dir").value = defaultDataDir + defaultTag;
   document.getElementById("input-data-dir").title = defaultDataDir;
+});
+
+document.getElementById("chk-reveal-new").addEventListener("change", (e) => {
+  document.getElementById("row-reveal-duration").classList.toggle("disabled", !e.target.checked);
 });
 
 document.getElementById("chk-sounds").addEventListener("change", (e) => {
@@ -424,6 +439,8 @@ document.getElementById("btn-reset").addEventListener("click", () => {
   document.getElementById("chk-clipboard").checked = true;
   document.getElementById("chk-hover").checked = false;
   document.getElementById("chk-reveal-new").checked = true;
+  document.getElementById("input-reveal-duration").value = 3;
+  document.getElementById("row-reveal-duration").classList.remove("disabled");
   document.getElementById("chk-sounds").checked = false;
   document.getElementById("chk-autostart").checked = false;
   customSoundPath = null;
@@ -455,6 +472,10 @@ document.getElementById("btn-save").addEventListener("click", async () => {
     hang_clipboard: document.getElementById("chk-clipboard").checked,
     reveal_on_hover: document.getElementById("chk-hover").checked,
     reveal_on_new: document.getElementById("chk-reveal-new").checked,
+    reveal_duration: Math.max(
+      1,
+      Math.min(300, parseInt(document.getElementById("input-reveal-duration").value, 10) || 3)
+    ),
     sounds: document.getElementById("chk-sounds").checked,
     custom_sound_path: customSoundPath !== undefined ? customSoundPath : currentSettings.custom_sound_path,
     open_at_login: document.getElementById("chk-autostart").checked,

@@ -38,6 +38,8 @@ pub struct Settings {
     pub keep_on_line: Option<u32>,
     /// Reveal the line the moment a new photo lands on it.
     pub reveal_on_new: bool,
+    /// Duration in seconds to display the line after new captures or hangs before auto-dismissing.
+    pub reveal_duration: u32,
     /// Reveal the line when the pointer sits at the top edge.
     pub reveal_on_hover: bool,
     /// Reveal the line even when a full-screen app is in front.
@@ -63,6 +65,7 @@ impl Default for Settings {
             export_dir: None,
             keep_on_line: None,
             reveal_on_new: true,
+            reveal_duration: 3,
             reveal_on_hover: false,
             reveal_over_fullscreen: false,
             sounds: false,
@@ -117,6 +120,7 @@ mod tests {
         assert!(s.export_dir.is_none());
         assert!(s.keep_on_line.is_none());
         assert!(s.reveal_on_new);
+        assert_eq!(s.reveal_duration, 3);
         assert!(!s.reveal_on_hover);
         assert!(!s.reveal_over_fullscreen);
         assert!(!s.sounds);
@@ -159,6 +163,7 @@ mod tests {
         assert!(s.export_dir.is_none());
         assert!(s.keep_on_line.is_none());
         assert!(s.reveal_on_new);
+        assert_eq!(s.reveal_duration, 3);
         assert!(!s.reveal_on_hover);
         assert!(!s.reveal_over_fullscreen);
         assert!(!s.sounds);

@@ -149,23 +149,26 @@ pub fn reveal_on_new(app: &AppHandle) {
     let Ok(root) = data_root(app) else {
         return;
     };
-    if settings::Settings::load(&root).reveal_on_new {
+    let s = settings::Settings::load(&root);
+    if s.reveal_on_new {
         if let Some(window) = app.get_webview_window("line") {
             if let Ok(cursor) = app.cursor_position() {
                 if let Ok(Some(mon)) = app.monitor_from_point(cursor.x, cursor.y) {
-                    let s = app
+                    let scale = app
                         .state::<AppState>()
                         .inner
                         .lock()
                         .map(|g| g.scale)
                         .unwrap_or(1.0);
-                    let _ = window::place_on_monitor(&window, &mon, s);
+                    let _ = window::place_on_monitor(&window, &mon, scale);
                 }
             }
         }
+        let duration_secs = s.reveal_duration.clamp(1, 300);
         if let Ok(mut inner) = app.state::<AppState>().inner.lock() {
-            inner.auto_dismiss_at =
-                Some(std::time::Instant::now() + std::time::Duration::from_millis(3000));
+            inner.auto_dismiss_at = Some(
+                std::time::Instant::now() + std::time::Duration::from_secs(duration_secs as u64),
+            );
         }
         reveal(app, true);
     }
@@ -259,6 +262,8 @@ pub fn take_everything_down(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+static DEFAULT_HANG_SOUND: &[u8] = include_bytes!("../assets/default_hang.wav");
+
 /// A short chime played when a photo hangs on the line. Only when `settings.sounds` is on.
 /// Supports an optional user-selected custom `.wav` audio file.
 #[cfg(windows)]
@@ -287,6 +292,19 @@ pub fn play_hang_sound(custom_path: Option<&str>) {
                     return;
                 }
             }
+        }
+    }
+
+    // Play default embedded hang sound
+    unsafe {
+        // SND_MEMORY = 0x0004, SND_ASYNC = 0x0001, SND_NODEFAULT = 0x0002
+        if PlaySoundW(
+            DEFAULT_HANG_SOUND.as_ptr() as *const u16,
+            std::ptr::null_mut(),
+            0x0004 | 0x0001 | 0x0002,
+        ) != 0
+        {
+            return;
         }
     }
 
