@@ -117,6 +117,40 @@ body {
   display: none;
 }
 
+/* Floating size indicator when using mouse wheel */
+.wheel-indicator {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  background: rgba(20, 20, 24, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 10002;
+  font: 600 12px/1 ui-monospace, "Cascadia Mono", monospace;
+  color: #fff;
+  transform: translate(-50%, -130%);
+  transition: opacity 0.15s ease;
+}
+
+.wheel-indicator[hidden] {
+  display: none !important;
+}
+
+#wheel-circle {
+  border-radius: 50%;
+  background: #ef4444;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  flex-shrink: 0;
+  min-width: 4px;
+  min-height: 4px;
+}
+
 /* Floating frosted-glass annotation toolbar */
 .annotation-toolbar {
   position: fixed;
@@ -155,8 +189,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   background: transparent;
   border: none;
@@ -167,8 +201,8 @@ body {
 }
 
 .tool-btn svg {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
 }
 
 .tool-btn:hover {
@@ -208,16 +242,17 @@ body {
 .v-divider {
   width: 1px;
   height: 18px;
-  margin: 0 4px;
+  margin: 0 3px;
   background: rgba(255, 255, 255, 0.16);
 }
 
 .color-picker,
-.size-picker {
+.size-picker,
+.mosaic-mode-picker {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 4px;
+  gap: 5px;
+  padding: 0 3px;
 }
 
 .color-dot {
@@ -268,6 +303,41 @@ body {
 .size-dot.active {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.35);
+}
+
+.mode-toggle-btn,
+.style-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.mode-toggle-btn svg,
+.style-toggle-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.mode-toggle-btn:hover,
+.style-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.mode-toggle-btn.active,
+.style-toggle-btn.active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
 }
 
 /* Inline text input overlay */

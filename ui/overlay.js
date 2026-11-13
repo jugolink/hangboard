@@ -18,6 +18,18 @@ const hint = document.getElementById("hint");
 
 const toolbar = document.getElementById("toolbar");
 const toolbarOptions = document.getElementById("toolbar-options");
+const optColors = document.getElementById("opt-colors");
+const optMosaicMode = document.getElementById("opt-mosaic-mode");
+const optSizes = document.getElementById("opt-sizes");
+const optFillDivider = document.getElementById("opt-fill-divider");
+const btnFillToggle = document.getElementById("btn-fill-toggle");
+const btnMosaicRect = document.getElementById("btn-mosaic-rect");
+const btnMosaicBrush = document.getElementById("btn-mosaic-brush");
+
+const wheelIndicator = document.getElementById("wheel-indicator");
+const wheelCircle = document.getElementById("wheel-circle");
+const wheelText = document.getElementById("wheel-text");
+
 const btnUndo = toolbar.querySelector('[data-action="undo"]');
 const btnRedo = toolbar.querySelector('[data-action="redo"]');
 const btnCancel = toolbar.querySelector('[data-action="cancel"]');
@@ -44,11 +56,17 @@ const I18N = {
     sizeThick: "粗",
     toolRect: "矩形 (R)",
     toolEllipse: "椭圆 (O)",
+    toolLine: "直线 (L)",
     toolArrow: "箭头 (A)",
     toolPen: "画笔 (P)",
     toolHighlighter: "荧光笔 (H)",
     toolMosaic: "马赛克 (M)",
+    toolBlur: "平滑模糊 (B)",
     toolText: "文字标注 (T)",
+    toolStep: "步骤序号 (S)",
+    styleOutline: "切换填充/边框 (F)",
+    mosaicRect: "矩形框选",
+    mosaicBrush: "画笔涂抹",
     actionUndo: "撤销 (Ctrl+Z)",
     actionRedo: "重做 (Ctrl+Y)",
     actionCancel: "取消 (Esc)",
@@ -68,11 +86,17 @@ const I18N = {
     sizeThick: "Thick",
     toolRect: "Rectangle (R)",
     toolEllipse: "Ellipse (O)",
+    toolLine: "Line (L)",
     toolArrow: "Arrow (A)",
     toolPen: "Pen (P)",
     toolHighlighter: "Highlighter (H)",
     toolMosaic: "Mosaic (M)",
+    toolBlur: "Smooth Blur (B)",
     toolText: "Text (T)",
+    toolStep: "Step Badge (S)",
+    styleOutline: "Toggle Stroke/Fill (F)",
+    mosaicRect: "Rectangle Mode",
+    mosaicBrush: "Brush Mode",
     actionUndo: "Undo (Ctrl+Z)",
     actionRedo: "Redo (Ctrl+Y)",
     actionCancel: "Cancel (Esc)",
@@ -191,10 +215,30 @@ function selectTool(tool) {
       btn.classList.toggle("active", btn.dataset.tool === tool);
     });
 
-    if (tool === "mosaic") {
-      toolbarOptions.hidden = true;
+    toolbarOptions.hidden = false;
+
+    if (tool === "rect" || tool === "ellipse") {
+      optColors.hidden = false;
+      optMosaicMode.hidden = true;
+      optSizes.hidden = false;
+      optFillDivider.hidden = false;
+      btnFillToggle.hidden = false;
+      btnFillToggle.classList.toggle("active", annotator.isFilled);
+    } else if (tool === "mosaic" || tool === "blur") {
+      optColors.hidden = true;
+      optMosaicMode.hidden = false;
+      optSizes.hidden = false;
+      optFillDivider.hidden = true;
+      btnFillToggle.hidden = true;
+      btnMosaicRect.classList.toggle("active", annotator.mosaicMode === "rect");
+      btnMosaicBrush.classList.toggle("active", annotator.mosaicMode === "brush");
     } else {
-      toolbarOptions.hidden = false;
+      // line, arrow, pen, highlighter, text, step
+      optColors.hidden = false;
+      optMosaicMode.hidden = true;
+      optSizes.hidden = false;
+      optFillDivider.hidden = true;
+      btnFillToggle.hidden = true;
     }
   }
   positionToolbar();
@@ -227,6 +271,26 @@ toolbar.querySelectorAll(".size-dot").forEach((dot) => {
   });
 });
 
+btnFillToggle.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const filled = annotator.toggleFilled();
+  btnFillToggle.classList.toggle("active", filled);
+});
+
+btnMosaicRect.addEventListener("click", (e) => {
+  e.stopPropagation();
+  annotator.setMosaicMode("rect");
+  btnMosaicRect.classList.add("active");
+  btnMosaicBrush.classList.remove("active");
+});
+
+btnMosaicBrush.addEventListener("click", (e) => {
+  e.stopPropagation();
+  annotator.setMosaicMode("brush");
+  btnMosaicBrush.classList.add("active");
+  btnMosaicRect.classList.remove("active");
+});
+
 btnUndo.addEventListener("click", (e) => {
   e.stopPropagation();
   annotator.undo();
@@ -246,6 +310,60 @@ btnFinish.addEventListener("click", (e) => {
   e.stopPropagation();
   void commit();
 });
+
+// ---- Mouse wheel size indicator ---------------------------------------------
+
+let wheelTimer = null;
+function showWheelIndicator(clientX, clientY, size, tool) {
+  if (!wheelIndicator) return;
+  wheelIndicator.hidden = false;
+  wheelIndicator.style.left = `${clientX}px`;
+  wheelIndicator.style.top = `${clientY}px`;
+  wheelIndicator.style.opacity = "1";
+
+  const displaySize = Math.round(size);
+  wheelText.textContent = tool === "step" ? `Step: ${displaySize}px` : `${displaySize}px`;
+
+  const circleSize = Math.max(4, Math.min(26, tool === "step" ? displaySize * 1.5 : displaySize * 2));
+  wheelCircle.style.width = `${circleSize}px`;
+  wheelCircle.style.height = `${circleSize}px`;
+  wheelCircle.style.backgroundColor = tool === "blur" || tool === "mosaic" ? "#999" : annotator.strokeColor;
+
+  if (wheelTimer) clearTimeout(wheelTimer);
+  wheelTimer = setTimeout(() => {
+    wheelIndicator.style.opacity = "0";
+    setTimeout(() => {
+      wheelIndicator.hidden = true;
+    }, 150);
+  }, 600);
+}
+
+window.addEventListener(
+  "wheel",
+  (event) => {
+    if (!box || annotator.currentTool === "none") return;
+    if (inside(event.clientX, event.clientY, box)) {
+      event.preventDefault();
+      const delta = event.deltaY < 0 ? 1 : -1;
+      let newSize = annotator.strokeWidth;
+      if (annotator.currentTool === "highlighter") {
+        newSize = Math.max(8, Math.min(48, newSize + delta * 2));
+      } else if (annotator.currentTool === "step") {
+        newSize = Math.max(2, Math.min(18, newSize + delta));
+      } else {
+        newSize = Math.max(2, Math.min(32, newSize + delta));
+      }
+      annotator.setStrokeWidth(newSize);
+
+      toolbar.querySelectorAll(".size-dot").forEach((d) => {
+        d.classList.toggle("active", Number(d.dataset.size) === newSize);
+      });
+
+      showWheelIndicator(event.clientX, event.clientY, newSize, annotator.currentTool);
+    }
+  },
+  { passive: false }
+);
 
 // ---- Dragging & selecting ---------------------------------------------------
 
@@ -425,11 +543,20 @@ window.addEventListener("keydown", async (event) => {
     switch (k) {
       case "r": selectTool("rect"); break;
       case "o": selectTool("ellipse"); break;
+      case "l": selectTool("line"); break;
       case "a": selectTool("arrow"); break;
       case "p": selectTool("pen"); break;
       case "h": selectTool("highlighter"); break;
       case "m": selectTool("mosaic"); break;
+      case "b": selectTool("blur"); break;
       case "t": selectTool("text"); break;
+      case "s": selectTool("step"); break;
+      case "f":
+        if (annotator.currentTool === "rect" || annotator.currentTool === "ellipse") {
+          const filled = annotator.toggleFilled();
+          btnFillToggle.classList.toggle("active", filled);
+        }
+        break;
     }
   }
 });
@@ -465,17 +592,11 @@ async function boot() {
     factor = f || 1;
     backdrop.style.backgroundImage = `url("${url}")`;
 
-    // Decode before the annotator can sample it. Without this the first
-    // selection can land on an image that has no pixel data yet, and both the
-    // mosaic sampling and exportComposite would throw.
     stillImg = new Image();
     stillImg.src = url;
     try {
       await stillImg.decode();
-    } catch (_) {
-      // Keep going: annotate.js degrades to a flat block fill when there is no
-      // source to sample.
-    }
+    } catch (_) {}
 
     annotator.setFactor(factor);
     annotator.clear();

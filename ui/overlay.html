@@ -24,11 +24,17 @@
       <div id="size"></div>
     </div>
 
+    <!-- Floating size indicator when using mouse wheel -->
+    <div id="wheel-indicator" class="wheel-indicator" hidden>
+      <div id="wheel-circle"></div>
+      <span id="wheel-text">4px</span>
+    </div>
+
     <!-- Floating annotation toolbar. Every title is filled in from the
          I18N table in overlay.js, so nothing here is language-bound. -->
     <div id="toolbar" class="annotation-toolbar" hidden>
       <div id="toolbar-options" class="toolbar-options" hidden>
-        <div class="color-picker">
+        <div id="opt-colors" class="color-picker">
           <button class="color-dot active" data-color="#ef4444" style="--c: #ef4444" data-i18n-title="colorRed"></button>
           <button class="color-dot" data-color="#f97316" style="--c: #f97316" data-i18n-title="colorOrange"></button>
           <button class="color-dot" data-color="#eab308" style="--c: #eab308" data-i18n-title="colorYellow"></button>
@@ -37,12 +43,29 @@
           <button class="color-dot" data-color="#a855f7" style="--c: #a855f7" data-i18n-title="colorPurple"></button>
           <button class="color-dot" data-color="#ffffff" style="--c: #ffffff" data-i18n-title="colorWhite"></button>
         </div>
+
+        <div id="opt-mosaic-mode" class="mosaic-mode-picker" hidden>
+          <button id="btn-mosaic-rect" class="mode-toggle-btn active" data-mode="rect" data-i18n-title="mosaicRect">
+            <svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </button>
+          <button id="btn-mosaic-brush" class="mode-toggle-btn" data-mode="brush" data-i18n-title="mosaicBrush">
+            <svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
         <div class="v-divider"></div>
-        <div class="size-picker">
+
+        <div id="opt-sizes" class="size-picker">
           <button class="size-dot" data-size="2" data-i18n-title="sizeThin"><span style="width: 4px; height: 4px;"></span></button>
           <button class="size-dot active" data-size="4" data-i18n-title="sizeMedium"><span style="width: 7px; height: 7px;"></span></button>
           <button class="size-dot" data-size="8" data-i18n-title="sizeThick"><span style="width: 11px; height: 11px;"></span></button>
         </div>
+
+        <div id="opt-fill-divider" class="v-divider" hidden></div>
+
+        <button id="btn-fill-toggle" class="style-toggle-btn" data-i18n-title="styleOutline" hidden>
+          <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" fill-opacity="0.3" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
       </div>
 
       <div class="toolbar-main">
@@ -51,6 +74,9 @@
         </button>
         <button class="tool-btn" data-tool="ellipse" data-i18n-title="toolEllipse">
           <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="6.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <button class="tool-btn" data-tool="line" data-i18n-title="toolLine">
+          <svg viewBox="0 0 24 24"><path d="M5 19L19 5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
         </button>
         <button class="tool-btn" data-tool="arrow" data-i18n-title="toolArrow">
           <svg viewBox="0 0 24 24"><path d="M5 19L19 5M19 5v9M19 5H10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -64,8 +90,14 @@
         <button class="tool-btn" data-tool="mosaic" data-i18n-title="toolMosaic">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="4" height="4" fill="currentColor"/><rect x="11" y="3" width="4" height="4" fill="currentColor"/><rect x="17" y="3" width="4" height="4" fill="currentColor"/><rect x="7" y="7" width="4" height="4" fill="currentColor"/><rect x="15" y="7" width="4" height="4" fill="currentColor"/><rect x="3" y="11" width="4" height="4" fill="currentColor"/><rect x="11" y="11" width="4" height="4" fill="currentColor"/><rect x="17" y="11" width="4" height="4" fill="currentColor"/><rect x="7" y="15" width="4" height="4" fill="currentColor"/><rect x="15" y="15" width="4" height="4" fill="currentColor"/><rect x="3" y="19" width="4" height="4" fill="currentColor"/><rect x="11" y="19" width="4" height="4" fill="currentColor"/><rect x="17" y="19" width="4" height="4" fill="currentColor"/></svg>
         </button>
+        <button class="tool-btn" data-tool="blur" data-i18n-title="toolBlur">
+          <svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
         <button class="tool-btn" data-tool="text" data-i18n-title="toolText">
           <svg viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="tool-btn" data-tool="step" data-i18n-title="toolStep">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M10 10l2-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
 
         <div class="v-divider"></div>
