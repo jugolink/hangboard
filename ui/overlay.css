@@ -276,6 +276,20 @@ body {
   transform: scale(1.18);
 }
 
+.color-dot.custom-color-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.color-dot.custom-color-dot svg {
+  width: 11px;
+  height: 11px;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.75));
+  pointer-events: none;
+}
+
 .size-dot {
   display: flex;
   align-items: center;

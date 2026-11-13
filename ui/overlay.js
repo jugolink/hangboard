@@ -25,6 +25,8 @@ const optFillDivider = document.getElementById("opt-fill-divider");
 const btnFillToggle = document.getElementById("btn-fill-toggle");
 const btnMosaicRect = document.getElementById("btn-mosaic-rect");
 const btnMosaicBrush = document.getElementById("btn-mosaic-brush");
+const btnCustomColor = document.getElementById("btn-custom-color");
+const customColorInput = document.getElementById("custom-color-input");
 
 const wheelIndicator = document.getElementById("wheel-indicator");
 const wheelCircle = document.getElementById("wheel-circle");
@@ -51,6 +53,7 @@ const I18N = {
     colorBlue: "蓝色",
     colorPurple: "紫色",
     colorWhite: "白色",
+    colorCustom: "自定义颜色...",
     sizeThin: "细",
     sizeMedium: "中",
     sizeThick: "粗",
@@ -81,6 +84,7 @@ const I18N = {
     colorBlue: "Blue",
     colorPurple: "Purple",
     colorWhite: "White",
+    colorCustom: "Custom Color...",
     sizeThin: "Thin",
     sizeMedium: "Medium",
     sizeThick: "Thick",
@@ -253,7 +257,7 @@ toolbar.querySelectorAll(".tool-btn[data-tool]").forEach((btn) => {
   });
 });
 
-toolbar.querySelectorAll(".color-dot").forEach((dot) => {
+toolbar.querySelectorAll(".color-dot[data-color]").forEach((dot) => {
   dot.addEventListener("click", (e) => {
     e.stopPropagation();
     toolbar.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("active"));
@@ -261,6 +265,33 @@ toolbar.querySelectorAll(".color-dot").forEach((dot) => {
     annotator.setColor(dot.dataset.color);
   });
 });
+
+if (btnCustomColor && customColorInput) {
+  btnCustomColor.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (typeof customColorInput.showPicker === "function") {
+      try {
+        customColorInput.showPicker();
+      } catch (_) {
+        customColorInput.click();
+      }
+    } else {
+      customColorInput.click();
+    }
+  });
+
+  const onColorChange = (e) => {
+    const hex = e.target.value;
+    toolbar.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("active"));
+    btnCustomColor.classList.add("active");
+    btnCustomColor.style.setProperty("--c", hex);
+    btnCustomColor.dataset.color = hex;
+    annotator.setColor(hex);
+  };
+
+  customColorInput.addEventListener("input", onColorChange);
+  customColorInput.addEventListener("change", onColorChange);
+}
 
 toolbar.querySelectorAll(".size-dot").forEach((dot) => {
   dot.addEventListener("click", (e) => {
