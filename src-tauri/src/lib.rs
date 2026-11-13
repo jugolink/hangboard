@@ -202,8 +202,9 @@ pub fn hang(app: &AppHandle, img: image::RgbaImage) -> Result<Item, String> {
     }
     enforce_keep_on_line(app);
     if let Ok(root) = data_root(app) {
-        if settings::Settings::load(&root).sounds {
-            beep();
+        let s = settings::Settings::load(&root);
+        if s.sounds {
+            play_hang_sound(s.custom_sound_path.as_deref());
         }
     }
     persist(app);
@@ -258,9 +259,10 @@ pub fn take_everything_down(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// A short, system-chosen chime. Only when `settings.sounds` is on.
+/// A short chime played when a photo hangs on the line. Only when `settings.sounds` is on.
+/// Supports an optional user-selected custom `.wav` audio file.
 #[cfg(windows)]
-pub fn beep() {
+pub fn play_hang_sound(custom_path: Option<&str>) {
     #[link(name = "winmm")]
     extern "system" {
         fn PlaySoundW(psz_sound: *const u16, hmod: *mut core::ffi::c_void, fdw_sound: u32) -> i32;
@@ -269,6 +271,23 @@ pub fn beep() {
     extern "system" {
         #[link_name = "MessageBeep"]
         fn message_beep(u_type: u32) -> i32;
+    }
+
+    if let Some(path_str) = custom_path {
+        let p = std::path::Path::new(path_str);
+        if p.exists() {
+            let wide: Vec<u16> = path_str.encode_utf16().chain(std::iter::once(0)).collect();
+            unsafe {
+                if PlaySoundW(
+                    wide.as_ptr(),
+                    std::ptr::null_mut(),
+                    0x0002_0000 | 0x0001 | 0x0002, // SND_FILENAME | SND_ASYNC | SND_NODEFAULT
+                ) != 0
+                {
+                    return;
+                }
+            }
+        }
     }
 
     let candidates = [
@@ -311,7 +330,11 @@ pub fn beep() {
 }
 
 #[cfg(not(windows))]
-pub fn beep() {}
+pub fn play_hang_sound(_custom_path: Option<&str>) {}
+
+pub fn beep() {
+    play_hang_sound(None);
+}
 
 /// Register the region/full-screen hotkeys from `settings`.
 ///
@@ -498,6 +521,7 @@ pub fn run() {
             commands::start_card_drag,
             commands::copy_item,
             commands::discard_item,
+            commands::discard_items,
             commands::pin_item,
             commands::begin_capture,
             commands::finish_capture,
@@ -530,6 +554,8 @@ pub fn run() {
             commands::save_settings,
             commands::select_data_dir,
             commands::get_default_data_dir,
+            commands::select_sound_file,
+            commands::play_test_sound,
             commands::open_settings_window,
             commands::close_settings_window,
             commands::open_settings_file,

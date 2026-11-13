@@ -123,6 +123,19 @@
             </label>
           </div>
 
+          <div class="row path-row" id="row-custom-sound">
+            <div class="row-label">
+              <span class="label-primary" id="lbl-sound-path">自定义提示音效</span>
+              <span class="label-secondary" id="desc-sound-path">选择 .wav 音频文件，留空使用系统默认音效</span>
+            </div>
+            <div class="path-wrapper sound-path-wrapper">
+              <input type="text" id="input-sound-path" readonly placeholder="系统默认音效" />
+              <button class="btn-browse" id="btn-browse-sound" title="浏览">📂 浏览…</button>
+              <button class="btn-browse" id="btn-test-sound" title="试听">▶ 试听</button>
+              <button class="btn-clear" id="btn-reset-sound" title="恢复默认">↺</button>
+            </div>
+          </div>
+
           <div class="row toggle-row">
             <div class="row-label">
               <span class="label-primary" id="lbl-autostart">开机自启动</span>

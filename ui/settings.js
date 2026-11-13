@@ -7,6 +7,7 @@ let currentSettings = null;
 let recordingTarget = null; // 'region' | 'whole' | null
 let customDataDir = undefined; // undefined: unchanged, null: default, string: custom
 let defaultDataDir = "";
+let customSoundPath = undefined; // undefined: unchanged, null: default, string: custom path
 
 // Raw accelerators currently held by the inputs
 let hotkeys = {
@@ -38,6 +39,11 @@ const I18N = {
     descRevealNew: "截图或复制新图片后自动展开绳索并展示 3 秒",
     lblSounds: "提示音效",
     descSounds: "新图片挂上晾衣绳时播放提示音",
+    lblSoundPath: "自定义提示音效",
+    descSoundPath: "支持选择 .wav 音频文件，留空使用系统默认音效",
+    btnBrowseSound: "📂 浏览…",
+    btnTestSound: "▶ 试听",
+    defaultSoundPlaceholder: "系统默认音效",
     lblAutostart: "开机自启动",
     descAutostart: "登录 Windows 时自动启动 Hangboard",
     secDisplay: "界面与容量",
@@ -81,6 +87,11 @@ const I18N = {
     descRevealNew: "Auto-drop line and display newly hung photo for 3s",
     lblSounds: "Sound effects",
     descSounds: "Play subtle chime when a photo hangs on the line",
+    lblSoundPath: "Custom Sound Effect",
+    descSoundPath: "Choose a .wav audio file, or leave empty for default chime",
+    btnBrowseSound: "📂 Browse…",
+    btnTestSound: "▶ Test",
+    defaultSoundPlaceholder: "System default chime",
     lblAutostart: "Open at login",
     descAutostart: "Launch Hangboard when signing in to Windows",
     secDisplay: "Appearance & Capacity",
@@ -126,6 +137,11 @@ function updateLanguage(lang) {
   document.getElementById("desc-reveal-new").textContent = t.descRevealNew;
   document.getElementById("lbl-sounds").textContent = t.lblSounds;
   document.getElementById("desc-sounds").textContent = t.descSounds;
+  document.getElementById("lbl-sound-path").textContent = t.lblSoundPath;
+  document.getElementById("desc-sound-path").textContent = t.descSoundPath;
+  document.getElementById("btn-browse-sound").textContent = t.btnBrowseSound;
+  document.getElementById("btn-test-sound").textContent = t.btnTestSound;
+  document.getElementById("input-sound-path").placeholder = t.defaultSoundPlaceholder || "系统默认音效";
   document.getElementById("lbl-autostart").textContent = t.lblAutostart;
   document.getElementById("desc-autostart").textContent = t.descAutostart;
   document.getElementById("sec-display").textContent = t.secDisplay;
@@ -306,6 +322,17 @@ async function load() {
   document.getElementById("chk-sounds").checked = currentSettings.sounds;
   document.getElementById("chk-autostart").checked = currentSettings.open_at_login;
 
+  customSoundPath = currentSettings.custom_sound_path;
+  const soundInput = document.getElementById("input-sound-path");
+  if (customSoundPath) {
+    soundInput.value = customSoundPath;
+    soundInput.title = customSoundPath;
+  } else {
+    soundInput.value = "";
+    soundInput.title = "";
+  }
+  document.getElementById("row-custom-sound").classList.toggle("disabled", !currentSettings.sounds);
+
   document.getElementById("sel-scale").value = String(currentSettings.scale);
   document.getElementById("sel-keep").value = currentSettings.keep_on_line !== null ? String(currentSettings.keep_on_line) : "";
   document.getElementById("sel-lang").value = currentSettings.language || "zh-CN";
@@ -332,6 +359,39 @@ document.getElementById("btn-reset-dir").addEventListener("click", () => {
   const defaultTag = ` ${I18N[lang]?.defaultDirNote || "(默认)"}`;
   document.getElementById("input-data-dir").value = defaultDataDir + defaultTag;
   document.getElementById("input-data-dir").title = defaultDataDir;
+});
+
+document.getElementById("chk-sounds").addEventListener("change", (e) => {
+  document.getElementById("row-custom-sound").classList.toggle("disabled", !e.target.checked);
+});
+
+document.getElementById("btn-browse-sound").addEventListener("click", async () => {
+  try {
+    const selected = await invoke("select_sound_file");
+    if (selected) {
+      customSoundPath = selected;
+      const soundInput = document.getElementById("input-sound-path");
+      soundInput.value = selected;
+      soundInput.title = selected;
+    }
+  } catch (err) {
+    console.error("Failed to select sound file:", err);
+  }
+});
+
+document.getElementById("btn-test-sound").addEventListener("click", async () => {
+  try {
+    await invoke("play_test_sound", { path: customSoundPath || null });
+  } catch (err) {
+    console.error("Failed to play test sound:", err);
+  }
+});
+
+document.getElementById("btn-reset-sound").addEventListener("click", () => {
+  customSoundPath = null;
+  const soundInput = document.getElementById("input-sound-path");
+  soundInput.value = "";
+  soundInput.title = "";
 });
 
 document.getElementById("sel-lang").addEventListener("change", (e) => {
@@ -366,6 +426,11 @@ document.getElementById("btn-reset").addEventListener("click", () => {
   document.getElementById("chk-reveal-new").checked = true;
   document.getElementById("chk-sounds").checked = false;
   document.getElementById("chk-autostart").checked = false;
+  customSoundPath = null;
+  const soundInput = document.getElementById("input-sound-path");
+  soundInput.value = "";
+  soundInput.title = "";
+  document.getElementById("row-custom-sound").classList.add("disabled");
   document.getElementById("sel-scale").value = "1.0";
   document.getElementById("sel-keep").value = "";
   document.getElementById("sel-lang").value = "zh-CN";
@@ -391,6 +456,7 @@ document.getElementById("btn-save").addEventListener("click", async () => {
     reveal_on_hover: document.getElementById("chk-hover").checked,
     reveal_on_new: document.getElementById("chk-reveal-new").checked,
     sounds: document.getElementById("chk-sounds").checked,
+    custom_sound_path: customSoundPath !== undefined ? customSoundPath : currentSettings.custom_sound_path,
     open_at_login: document.getElementById("chk-autostart").checked,
     scale: parseFloat(document.getElementById("sel-scale").value) || 1.0,
     keep_on_line: keepVal ? parseInt(keepVal, 10) : null,
@@ -401,6 +467,7 @@ document.getElementById("btn-save").addEventListener("click", async () => {
     await invoke("save_settings", { newSettings });
     currentSettings = newSettings;
     customDataDir = newSettings.data_dir;
+    customSoundPath = newSettings.custom_sound_path;
     btn.textContent = I18N[lang]?.saved || "Saved!";
     btn.style.backgroundColor = "#10b981";
     setTimeout(() => {

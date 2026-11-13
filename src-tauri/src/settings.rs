@@ -44,6 +44,8 @@ pub struct Settings {
     pub reveal_over_fullscreen: bool,
     /// Play a sound when a photo hangs or is taken down.
     pub sounds: bool,
+    /// Custom sound file path for the hang sound. `None` means default system chime.
+    pub custom_sound_path: Option<String>,
     /// UI language ("zh-CN" or "en").
     pub language: String,
 }
@@ -64,6 +66,7 @@ impl Default for Settings {
             reveal_on_hover: false,
             reveal_over_fullscreen: false,
             sounds: false,
+            custom_sound_path: None,
             language: "zh-CN".into(),
         }
     }
@@ -117,6 +120,7 @@ mod tests {
         assert!(!s.reveal_on_hover);
         assert!(!s.reveal_over_fullscreen);
         assert!(!s.sounds);
+        assert!(s.custom_sound_path.is_none());
         assert_eq!(s.language, "zh-CN");
     }
 
@@ -158,6 +162,7 @@ mod tests {
         assert!(!s.reveal_on_hover);
         assert!(!s.reveal_over_fullscreen);
         assert!(!s.sounds);
+        assert!(s.custom_sound_path.is_none());
         assert_eq!(s.language, "zh-CN");
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -113,6 +113,28 @@ pub fn discard_item(app: AppHandle, state: State<'_, AppState>, id: String) -> C
 }
 
 #[tauri::command]
+pub fn discard_items(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> CmdResult<()> {
+    let dir = crate::shots_dir(&app)?;
+    {
+        let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+        for id in &ids {
+            if let Some(pos) = inner.items.iter().position(|i| &i.id == id) {
+                let item = inner.items.remove(pos);
+                line::delete_file(&dir, &item);
+            }
+        }
+    }
+    crate::clipboard::reset_last_hash();
+    crate::persist(&app);
+    crate::emit_items(&app);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn pin_item(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -585,15 +607,16 @@ pub fn context_discard_right(app: AppHandle, state: State<'_, AppState>) -> CmdR
     discard_side(&app, &state, Side::Right)
 }
 
-/// Discard the context item itself.
+/// Discard the context item itself with falling animation.
 #[tauri::command]
 pub fn context_discard(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
     let id = {
         let inner = state.inner.lock().map_err(|e| e.to_string())?;
         inner.context_id.clone().ok_or("no context item")?
     };
-    discard_item(app.clone(), state.clone(), id)?;
-    close_context(app, state)
+    close_context(app.clone(), state)?;
+    let _ = app.emit("line:drop_card", serde_json::json!({ "id": id }));
+    Ok(())
 }
 
 enum Side {
@@ -636,25 +659,15 @@ fn discard_side(app: &AppHandle, state: &State<'_, AppState>, side: Side) -> Cmd
             .collect()
     };
 
-    let dir = crate::shots_dir(app)?;
-    {
-        let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
-        for id in &ids {
-            if let Some(pos) = inner.items.iter().position(|i| &i.id == id) {
-                let item = inner.items.remove(pos);
-                line::delete_file(&dir, &item);
-            }
-        }
+    close_context(app.clone(), state.clone())?;
+
+    if !ids.is_empty() {
+        let _ = app.emit("line:drop_cards", serde_json::json!({ "ids": ids }));
     }
-    crate::persist(app);
-    crate::emit_items(app);
+
     // The subject still exists; re-target it so a second click keeps working.
-    {
-        let mut inner = state.inner.lock().map_err(|e| e.to_string())?;
+    if let Ok(mut inner) = state.inner.lock() {
         inner.context_id = Some(subject_id);
-    }
-    if let Ok(window) = app.state::<Context>().window(app) {
-        let _ = window.hide();
     }
     Ok(())
 }
@@ -840,6 +853,71 @@ pub fn select_data_dir(app: AppHandle) -> CmdResult<Option<String>> {
         let _ = app;
         Ok(None)
     }
+}
+
+#[tauri::command]
+pub fn select_sound_file(_app: AppHandle) -> CmdResult<Option<String>> {
+    #[cfg(windows)]
+    {
+        use windows::core::w;
+        use windows::Win32::System::Com::{
+            CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_INPROC_SERVER,
+            COINIT_APARTMENTTHREADED,
+        };
+        use windows::Win32::UI::Shell::{
+            Common::COMDLG_FILTERSPEC, FileOpenDialog, IFileOpenDialog, FOS_FILEMUSTEXIST,
+            SIGDN_FILESYSPATH,
+        };
+
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+
+            let dialog: IFileOpenDialog =
+                CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER)
+                    .map_err(|e| e.to_string())?;
+
+            let options = dialog.GetOptions().map_err(|e| e.to_string())?;
+            dialog
+                .SetOptions(options | FOS_FILEMUSTEXIST)
+                .map_err(|e| e.to_string())?;
+
+            let filters = [
+                COMDLG_FILTERSPEC {
+                    pszName: w!("Audio Files (*.wav)"),
+                    pszSpec: w!("*.wav"),
+                },
+                COMDLG_FILTERSPEC {
+                    pszName: w!("All Files (*.*)"),
+                    pszSpec: w!("*.*"),
+                },
+            ];
+            let _ = dialog.SetFileTypes(&filters);
+
+            if dialog.Show(None).is_err() {
+                return Ok(None);
+            }
+
+            let result = dialog.GetResult().map_err(|e| e.to_string())?;
+            let display_name = result
+                .GetDisplayName(SIGDN_FILESYSPATH)
+                .map_err(|e| e.to_string())?;
+
+            let path_str = display_name.to_string().map_err(|e| e.to_string())?;
+            CoTaskMemFree(Some(display_name.as_ptr() as *const _));
+            Ok(Some(path_str))
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub fn play_test_sound(path: Option<String>) -> CmdResult<()> {
+    crate::play_hang_sound(path.as_deref());
+    Ok(())
 }
 
 #[tauri::command]

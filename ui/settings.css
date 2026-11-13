@@ -256,6 +256,19 @@ kbd {
   max-width: 280px;
 }
 
+.sound-path-wrapper {
+  max-width: 330px;
+}
+
+#row-custom-sound {
+  transition: opacity 160ms ease;
+}
+
+#row-custom-sound.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .path-wrapper input {
   flex: 1;
   min-width: 0;

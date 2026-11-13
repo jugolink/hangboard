@@ -44,6 +44,33 @@ let lastWindowWidth = window.innerWidth;
 /** How long the drop-out animation runs, kept in sync with .card-falling. */
 const FALL_MS = 560;
 
+/**
+ * Animate one or more cards falling off the clothesline, then discard on backend.
+ */
+function animateDropCards(ids) {
+  if (!ids || ids.length === 0) return;
+  const clones = [];
+  for (const id of ids) {
+    const card = cardsEl.querySelector(`.card[data-id="${id}"]:not(.falling)`);
+    if (card) {
+      const down = card.querySelector(".corner.take-down");
+      if (down) down.style.pointerEvents = "none";
+      const gone = card.cloneNode(true);
+      gone.removeAttribute("data-id");
+      gone.classList.remove("arriving");
+      gone.classList.add("falling");
+      gone.style.pointerEvents = "none";
+      cardsEl.appendChild(gone);
+      card.style.visibility = "hidden";
+      clones.push(gone);
+    }
+  }
+  setTimeout(async () => {
+    clones.forEach((c) => c.remove());
+    await invoke("discard_items", { ids });
+  }, FALL_MS);
+}
+
 /** The card top sits this far below the rope: the clothespin is 26px tall
     and overlaps the card by 12px, so 26 - 12 - pinAbove(9.5) = 4.5. */
 const CARD_DROP = 4.5;
@@ -218,20 +245,7 @@ function render() {
         return;
       }
       if (event.target === down || down.contains(event.target)) {
-        down.style.pointerEvents = "none";
-        // Play the drop-out animation, then hand off to Rust to delete and
-        // re-render. The card is cloned so the real one can leave the DOM and
-        // the clone carries the same left/top/tilt through the fall.
-        const gone = card.cloneNode(true);
-        gone.classList.remove("arriving");
-        gone.classList.add("falling");
-        gone.style.pointerEvents = "none";
-        cardsEl.appendChild(gone);
-        card.style.visibility = "hidden";
-        setTimeout(async () => {
-          gone.remove();
-          await invoke("discard_item", { id: item.id });
-        }, FALL_MS);
+        animateDropCards([item.id]);
         return;
       }
       if (event.target === pin || pin.contains(event.target)) {
@@ -390,6 +404,16 @@ async function boot() {
   await listen("line:items", (event) => {
     items = event.payload;
     render();
+  });
+
+  await listen("line:drop_card", (event) => {
+    const { id } = event.payload || {};
+    if (id) animateDropCards([id]);
+  });
+
+  await listen("line:drop_cards", (event) => {
+    const { ids } = event.payload || {};
+    if (ids && ids.length > 0) animateDropCards(ids);
   });
 
   await listen("line:revealed", (event) => setRevealed(event.payload));
