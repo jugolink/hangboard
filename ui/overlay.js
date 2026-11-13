@@ -267,19 +267,6 @@ toolbar.querySelectorAll(".color-dot[data-color]").forEach((dot) => {
 });
 
 if (btnCustomColor && customColorInput) {
-  btnCustomColor.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (typeof customColorInput.showPicker === "function") {
-      try {
-        customColorInput.showPicker();
-      } catch (_) {
-        customColorInput.click();
-      }
-    } else {
-      customColorInput.click();
-    }
-  });
-
   const onColorChange = (e) => {
     const hex = e.target.value;
     toolbar.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("active"));
@@ -291,6 +278,12 @@ if (btnCustomColor && customColorInput) {
 
   customColorInput.addEventListener("input", onColorChange);
   customColorInput.addEventListener("change", onColorChange);
+  customColorInput.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toolbar.querySelectorAll(".color-dot").forEach((d) => d.classList.remove("active"));
+    btnCustomColor.classList.add("active");
+    annotator.setColor(customColorInput.value);
+  });
 }
 
 toolbar.querySelectorAll(".size-dot").forEach((dot) => {
