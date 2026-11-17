@@ -1,0 +1,30 @@
+# Editor settings shared by everyone working on this repository.
+# Keep this list short: it exists to stop needless diff noise, not to impose a
+# style that rustfmt and prettier already own.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Rust is formatted by rustfmt; these two only matter for files rustfmt
+# does not reach (e.g. the occasional snippet in a comment).
+[*.rs]
+indent_size = 4
+
+[*.md]
+# Two trailing spaces are a hard line break in Markdown.
+trim_trailing_whitespace = false
+
+[*.{bat,cmd,ps1}]
+end_of_line = crlf
+
+[{Cargo.lock,package-lock.json}]
+# Generated; never reformat by hand.
+insert_final_newline = true
+trim_trailing_whitespace = false

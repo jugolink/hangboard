@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and release Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Bundle NSIS installer
+        run: npm run bundle
+
+      # After the build, never before: the collector reads each crate's licence
+      # file from the cargo registry, and those sources are only guaranteed to
+      # be unpacked once something has actually compiled them.
+      - name: Collect dependency licences
+        run: npm run licenses
+
+      - name: Upload installer to release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            THIRD-PARTY-LICENSES.md
+          generate_release_notes: true

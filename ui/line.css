@@ -1,0 +1,414 @@
+/* The line: a rope strung across the top of the screen with photos pegged
+   to it. Every number here is driven by --photo-h / --card-w, which line.js
+   sets from the same geometry the Rust side uses.
+
+   Visual reference: Tendedero's PeggedView.swift / LineView.swift. The
+   clothespin, the glass frame and the rope are recreated 1:1 in CSS; the one
+   thing Windows cannot do is the real blurred material behind the card, so
+   the glass is a translucent white gradient that lets the desktop show
+   through instead. */
+
+:root {
+  --photo-h: 104px;
+  --card-w: 150px;
+  --panel-h: 210px;
+  --rope-top: 10px;
+  --pin-above: 9.5px;
+  --sag: 20px;
+  /* Clothespin. The card top sits 14px below the clip top: clip top is
+     ropeY - pinAbove, card top is ropeY + 4.5 (26px clip, 12px overlap). */
+  --clip-h: 26px;
+  --clip-w: 9px;
+  --clip-gap: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  background: transparent;
+  /* The window is click-through anyway; this stops accidental text
+     selection from a dragging pointer. */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+/* The window itself never moves; this stage slides up inside it. */
+#stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--panel-h) + 24px);
+  transform: translateY(0);
+  /* Dropping down: a spring-ish settle. Retracting is quicker and eases in,
+     because the user already decided to leave. */
+  transition: transform 420ms cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+#stage.hidden {
+  transform: translateY(calc(-1 * (var(--panel-h) + 12px)));
+  transition: transform 220ms cubic-bezier(0.5, 0, 0.9, 0.4);
+}
+
+/* A soft shade behind the rope so dark screenshots do not vanish against a
+   dark desktop. Very subtle by design: this is a tool, not a widget. */
+#stage::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: calc(var(--photo-h) + 46px);
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.16),
+    rgba(0, 0, 0, 0.08) 42%,
+    rgba(0, 0, 0, 0)
+  );
+  pointer-events: none;
+}
+
+#rope {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--photo-h) + 40px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+#cards {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- one photo ---------------------------------------------------------- */
+
+/* The frame around the photo: the photo plus the glass inset. The photo's
+   radius is the frame's minus the inset, the way macOS rounds nested shapes. */
+.card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  user-select: none;
+  cursor: grab;
+  padding: 4px;
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.72)
+  );
+  /* Specular edge lit from above, and a faint dark rim, over the soft drop
+     shadow. Hover deepens the shadow and lifts the card. */
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.1),
+    0 5px 10px rgba(0, 0, 0, 0.18);
+  /* Tilt is set inline via --tilt; both rotation and the hover lift pivot on
+     the clip top so the photo swings under the clothespin, not around its own
+     centre. */
+  transform: rotate(var(--tilt, 0deg));
+  transform-origin: 50% calc(-1 * var(--clip-gap));
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease,
+    opacity 180ms ease;
+  will-change: transform;
+}
+
+.card:hover {
+  z-index: 5;
+  transform: rotate(var(--tilt, 0deg)) scale(1.035);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -0.5px 0 rgba(0, 0, 0, 0.1),
+    0 8px 14px rgba(0, 0, 0, 0.26);
+}
+
+.card:active {
+  cursor: grabbing;
+}
+
+.card img {
+  display: block;
+  border-radius: 12px;
+  /* A hairline specular ring on the photo edge. */
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.18);
+  /* Screenshots are the point; do not let the browser smooth them away. */
+  image-rendering: -webkit-optimize-contrast;
+  pointer-events: none;
+}
+
+/* ---- arrival & departure ------------------------------------------------ */
+/* 1:1 with Tendedero's PeggedView.swift / CaptureFlight.swift. */
+
+/* A new photo drops in from 46px above the rope, then swings from a 16° kick
+   back to upright. The spring curves are the same stiffness the Swift used.
+   No fill-mode: the final keyframe equals the resting transform, so once the
+   animation ends the card returns to normal CSS control (hover lift included). */
+/* Pending arrival: while the line is sliding down or hidden, hold the photo
+   invisible so it never flashes at its resting spot before dropping in. */
+.card.pending-arrive {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.card.arriving {
+  animation: arrive 720ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes arrive {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--tilt, 0deg)) translateY(-46px) rotate(16deg);
+  }
+  60% {
+    opacity: 1;
+    transform: rotate(var(--tilt, 0deg)) translateY(0) rotate(-2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(var(--tilt, 0deg)) translateY(0) rotate(0deg);
+  }
+}
+
+/* Taking a photo down: it falls 520px, its tilt spins out, and it fades.
+   duration 0.55s in Tendedero; 560ms here keeps the clone/remove timing whole. */
+.card.falling {
+  animation: fall 560ms cubic-bezier(0.5, 0, 0.9, 0.4) forwards;
+}
+
+@keyframes fall {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--tilt, 0deg)) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(calc(var(--tilt, 0deg) * 8 + 20deg)) translateY(520px);
+  }
+}
+
+/* The clothespin: a brushed metal pill with a slot where it grips the line.
+   Silver for what comes and goes, space grey for what you pinned. */
+.peg {
+  position: absolute;
+  top: calc(-1 * var(--clip-gap));
+  left: 50%;
+  width: var(--clip-w);
+  height: var(--clip-h);
+  transform: translateX(-50%);
+  border-radius: 3.5px;
+  background: linear-gradient(
+    90deg,
+    #b3b3b3 0%,
+    #ededed 35%,
+    #d1d1d1 65%,
+    #9e9e9e 100%
+  );
+  box-shadow:
+    inset 0 0.6px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -0.6px 0 rgba(0, 0, 0, 0.18),
+    0 1.5px 2px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* The slot the line passes through. */
+.peg::before {
+  content: "";
+  position: absolute;
+  top: 8.5px;
+  left: 50%;
+  width: 5px;
+  height: 1.4px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.card.kept .peg {
+  background: linear-gradient(
+    90deg,
+    #4d4d4d 0%,
+    #787878 35%,
+    #616161 65%,
+    #3d3d3d 100%
+  );
+  box-shadow:
+    inset 0 0.6px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -0.6px 0 rgba(0, 0, 0, 0.18),
+    0 1.5px 2px rgba(0, 0, 0, 0.3);
+}
+
+.card.kept .peg::before {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+/* ---- corner controls --------------------------------------------------- */
+
+.corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 700 10px/1 system-ui, sans-serif;
+  color: #fff;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+  cursor: pointer;
+  /* Glass circle: translucent white with a specular top edge. */
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+}
+
+.card:hover .corner {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Top-left, like Tendedero: the ✕ takes the photo down. */
+.corner.take-down {
+  top: -8px;
+  left: -8px;
+  background: rgba(207, 68, 54, 0.92);
+}
+
+.corner.take-down:hover {
+  background: #e05545;
+}
+
+/* Top-right: pin, so a photo survives the line filling up. */
+.corner.pin {
+  top: -8px;
+  right: -8px;
+  background: rgba(107, 101, 88, 0.92);
+}
+
+.corner.pin:hover,
+.card.kept .corner.pin {
+  background: #b9922f;
+}
+
+/* ---- empty line -------------------------------------------------------- */
+
+#hint {
+  position: absolute;
+  top: calc(var(--rope-top) + 26px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+  color: rgba(58, 58, 60, 0.9);
+  font: 500 12px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+
+#hint.visible {
+  opacity: 1;
+}
+
+/* A short "Copied" glass capsule: text and background in one element so the
+   label and its pill can never drift apart into a stray white fragment. */
+.card.copied::after {
+  content: "✓ 已复制";
+  position: absolute;
+  left: 50%;
+  bottom: -32px;
+  transform: translate(-50%, 0);
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.28);
+  font: 600 11px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1c1c1e;
+  white-space: nowrap;
+  animation: fade-up 900ms ease forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+html[lang="en"] .card.copied::after {
+  content: "✓ Copied";
+}
+
+.card.feedback-pill::after {
+  content: attr(data-feedback);
+  position: absolute;
+  left: 50%;
+  bottom: -32px;
+  transform: translate(-50%, 0);
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow:
+    inset 0 0.75px 0 rgba(255, 255, 255, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.28);
+  font: 600 11px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1c1c1e;
+  white-space: nowrap;
+  animation: fade-up 1200ms ease forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #stage,
+  #stage.hidden,
+  .card,
+  .corner {
+    transition-duration: 1ms;
+  }
+  .card.copied::after,
+  .card.arriving,
+  .card.falling {
+    animation-duration: 1ms;
+  }
+}

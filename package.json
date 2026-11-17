@@ -1,0 +1,29 @@
+{
+  "name": "hangboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Screenshots hang on a line at the top edge of the screen",
+  "license": "MIT",
+  "author": "Evek",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jugolink/hangboard.git"
+  },
+  "homepage": "https://github.com/jugolink/hangboard#readme",
+  "bugs": {
+    "url": "https://github.com/jugolink/hangboard/issues"
+  },
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build --no-bundle",
+    "bundle": "tauri build",
+    "check:site": "node scripts/check-site.mjs",
+    "check:version": "node scripts/check-version.mjs",
+    "licenses": "node scripts/third-party-licenses.mjs",
+    "check": "npm run check:site && npm run check:version",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4"
+  }
+}

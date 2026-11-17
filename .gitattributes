@@ -1,0 +1,23 @@
+# Normalise line endings in the repository, regardless of the machine that
+# clones it. Without this, a Windows checkout (core.autocrlf=true) and a Linux
+# one disagree about whether Cargo.lock contains \r, which is exactly how
+# scripts/check-version.mjs once failed against itself on CI.
+* text=auto eol=lf
+
+# Shell/batch scripts would break if they lost their native endings. There are
+# none today; keep the rule so adding one is not a trap.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary payloads: never let git touch these.
+*.png binary
+*.ico binary
+*.icns binary
+*.wav binary
+*.exe binary
+*.dll binary
+
+# Generated lockfiles: real files, but not prose worth reading in a diff.
+Cargo.lock text eol=lf linguist-generated
+package-lock.json text eol=lf linguist-generated
